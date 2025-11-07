@@ -2,26 +2,25 @@
 
 import mri from "mri";
 import { spawn, execSync } from "node:child_process";
-import { existsSync, mkdirSync, rmSync } from "node:fs";
+import { mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import puppeteer from "puppeteer-core";
 
 const usage = () => {
-    console.log("Usage: start.js [--profile] [--visible|--headless]");
+    console.log("Usage: start.js [--profile] [--reset]");
     console.log("\nOptions:");
-    console.log("  --profile   Snapshot your primary Brave profile into the automation session (cookies, logins) and force visible mode so you can supervise");
-    console.log("  --visible   Launch Brave with a visible window (required for pick.js)");
-    console.log("  --headless  Force headless mode (default)");
+    console.log("  --profile  Launch a visible Brave session using the automation profile cache");
+    console.log("  --reset    Wipe the automation profile before launching (visible only)");
     console.log("\nExamples:");
     console.log("  start.js");
-    console.log("  start.js --visible");
     console.log("  start.js --profile");
+    console.log("  start.js --profile --reset");
 };
 
 const argv = mri(process.argv.slice(2), {
     alias: { h: "help" },
-    boolean: ["profile", "visible", "headless"],
+    boolean: ["profile", "reset"],
 });
 
 if (argv.help) {
@@ -34,91 +33,57 @@ if (argv._.length > 0) {
     process.exit(1);
 }
 
-let useProfile = Boolean(argv.profile);
-let useVisible = useProfile || Boolean(argv.visible);
+const useProfile = Boolean(argv.profile);
+const resetProfile = Boolean(argv.reset);
 
-if (argv.headless) {
-    if (useProfile) {
-        console.warn("⚠ Ignoring --headless because --profile requires a visible session");
-    } else {
-        useVisible = false;
-    }
-}
-
-const homeDir = process.env["HOME"];
-
-if (!homeDir) {
-    console.error("✗ HOME is not set; cannot locate Brave profile");
-    process.exit(1);
+if (resetProfile && !useProfile) {
+    console.warn("⚠ Ignoring --reset because no persistent profile is in use");
 }
 
 const toolsRoot = fileURLToPath(new URL("../", import.meta.url));
-const cacheDir = join(process.env["BROWSER_TOOLS_CACHE"] ?? toolsRoot, ".cache", "scraping");
+const profileDir = join(process.env["BROWSER_TOOLS_CACHE"] ?? toolsRoot, ".cache", "automation-profile");
 
-if (useProfile) {
-    const profileSource = join(
-        homeDir,
-        "Library",
-        "Application Support",
-        "BraveSoftware",
-        "Brave-Browser",
-    );
-
+if (useProfile && resetProfile) {
     try {
-        rmSync(cacheDir, { recursive: true, force: true });
-    } catch {}
-    mkdirSync(cacheDir, { recursive: true });
-
-    if (existsSync(profileSource)) {
-        execSync(`rsync -a --delete "${profileSource}/" "${cacheDir}/"`, { stdio: "pipe" });
-    } else {
-        console.warn(
-            `Warning: Brave profile folder not found at ${profileSource}. Continuing with a clean profile instead.`,
-        );
+        rmSync(profileDir, { recursive: true, force: true });
+        console.log("ℹ Reset automation profile");
+    } catch (err) {
+        console.warn("Warning: failed to reset automation profile", err?.message ?? err);
     }
-} else {
-    mkdirSync(cacheDir, { recursive: true });
 }
 
+mkdirSync(profileDir, { recursive: true });
 
 try {
     const psOutput = execSync("ps -Ao pid=,command=").toString();
     for (const line of psOutput.split("\n")) {
         if (!line.includes("Brave Browser")) continue;
-        if (!line.includes(`--user-data-dir=${cacheDir}`)) continue;
+        if (!line.includes(`--user-data-dir=${profileDir}`)) continue;
         const pid = line.trim().split(/\s+/)[0];
-        if (pid) {
-            try {
-                execSync(`kill -TERM ${pid}`);
-            } catch {}
-        }
+        if (!pid) continue;
+        try {
+            execSync(`kill -TERM ${pid}`);
+        } catch {}
     }
 } catch (err) {
-    console.warn("Warning: failed to inspect existing Brave processes", err?.message ?? err);
+    console.warn("Warning: failed to inspect Brave processes", err?.message ?? err);
 }
 
 await new Promise((r) => setTimeout(r, 1000));
 
-// Start Brave in background (detached so Node can exit)
 const launchArgs = [
     "--remote-debugging-port=9222",
-    `--user-data-dir=${cacheDir}`,
+    `--user-data-dir=${profileDir}`,
     "--no-first-run",
     "--no-default-browser-check",
     "--disable-dev-shm-usage",
 ];
 
-if (!useProfile && !useVisible) {
-    launchArgs.push("--incognito");
-}
-if (!useVisible) {
-    launchArgs.push("--headless=new", "--disable-gpu");
+if (!useProfile) {
+    launchArgs.push("--incognito", "--headless=new", "--disable-gpu");
 } else {
     const extensionDir = join(toolsRoot, "extensions", "automation-helper");
-    launchArgs.push(
-        `--disable-extensions-except=${extensionDir}`,
-        `--load-extension=${extensionDir}`,
-    );
+    launchArgs.push(`--disable-extensions-except=${extensionDir}`, `--load-extension=${extensionDir}`);
 }
 
 spawn(
@@ -127,9 +92,8 @@ spawn(
     { detached: true, stdio: "ignore" },
 ).unref();
 
-// Wait for Brave to be ready by attempting to connect
 let connected = false;
-const maxAttempts = useProfile ? 60 : 30;
+const maxAttempts = 30;
 for (let i = 0; i < maxAttempts; i++) {
     try {
         const browser = await puppeteer.connect({
@@ -149,4 +113,8 @@ if (!connected) {
     process.exit(1);
 }
 
-console.log(`✓ Brave started on :9222${useProfile ? " with your profile" : ""}`);
+if (useProfile) {
+    console.log("✓ Brave started on :9222 (visible automation profile)");
+} else {
+    console.log("✓ Brave started on :9222 (headless incognito)");
+}

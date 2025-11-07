@@ -1,6 +1,6 @@
 # Browser Tools
 
-Lightweight Brave automation helpers built on the Chrome DevTools Protocol. All scripts expect Brave running on `http://localhost:9222` with remote debugging enabled.
+Lightweight Brave automation helpers built on the Chrome DevTools Protocol. Every script except `tools/ddg-search.js` requires Brave running on `http://localhost:9222` with remote debugging enabled.
 
 ## Requirements & Install
 - macOS with Brave at `/Applications/Brave Browser.app`.
@@ -18,25 +18,20 @@ Lightweight Brave automation helpers built on the Chrome DevTools Protocol. All 
 ## Start Brave
 
 ```bash
-node tools/start.js [--profile] [--visible|--headless]
+node tools/start.js [--profile] [--reset]
 ```
 
-- Default: `node tools/start.js` (headless) runs Brave in incognito mode using
-  the automation cache under `./.cache/scraping` (override via
-  `BROWSER_TOOLS_CACHE`). Tabs start blank every run.
-- `--visible` launches a real window. Run this before using tools that need UI,
-  such as `pick.js`. This flag is implied automatically when you pass
-  `--profile` so you can supervise the session.
-- `--profile` only when you must reuse the user’s cookies/logins; otherwise keep
-  sessions clean. Passing this flag wipes the cache, copies your profile, and
-  forces visible mode.
-- The helper terminates only prior automation instances that use the same cache
-  path, launches a fresh one on :9222, and waits until DevTools responds. Keep
-  the automation browser running while using other tools.
-- When you’re done, close any temporary tabs you opened (or just
-  `node tools/stop.js`) so the next session starts blank. Incognito clears session
-  data automatically, but leaving tabs open can still briefly flash old pages on
-  restart.
+- Default: `node tools/start.js` runs Brave headless in incognito mode using the
+  automation profile directory so nothing from previous runs leaks forward.
+- `--profile` opens a visible session backed by the persistent automation
+  profile under `./.cache/automation-profile`. Use this for UI workflows such as
+  `pick.js`.
+- `--reset` wipes that automation profile before launch (only meaningful with
+  `--profile`) so you can log in from scratch.
+- The helper terminates only prior automation instances using this profile,
+  launches a fresh one on :9222, and waits until DevTools responds. Keep the
+  automation browser running while using other tools, and run
+  `node tools/stop.js` when you’re done.
 
 ## Navigate
 
@@ -73,7 +68,7 @@ node tools/pick.js "Click the submit button"
 
 Interactive overlay for collecting element metadata. Cmd/Ctrl+click adds to the
 selection, Enter confirms, Esc cancels. Returns tag/id/class/text/html snippets
-for each pick. Requires a visible browser session (`node tools/start.js --visible`).
+for each pick. Requires a visible browser session (`node tools/start.js --profile`).
 Highlights now stay visible until you click elsewhere or press Enter/Esc so you
 can confirm the selection without racing a timeout.
 
@@ -110,7 +105,7 @@ node tools/stop.js
 ```
 
 Terminates any Brave processes launched via `tools/start.js` for the current
-cache directory (`./.cache/scraping` or `BROWSER_TOOLS_CACHE`). Run this when
+cache directory (`./.cache/automation-profile` or `BROWSER_TOOLS_CACHE`). Run this when
 the browsing task is complete so subsequent sessions start cleanly and no
 windows are left open.
 

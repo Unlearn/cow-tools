@@ -7,29 +7,30 @@ import puppeteer from "puppeteer-core";
 
 if (process.argv.includes("--help")) {
     console.log("Usage: stop.js");
-    console.log("\nCloses tabs and terminates any Brave processes launched via tools/start.js for the current cache directory.");
+    console.log("\nCloses tabs and terminates any Brave processes launched via tools/start.js.");
     process.exit(0);
 }
 
 const toolsRoot = fileURLToPath(new URL("../", import.meta.url));
-const cacheDir = join(process.env["BROWSER_TOOLS_CACHE"] ?? toolsRoot, ".cache", "scraping");
+const profileDir = join(process.env["BROWSER_TOOLS_CACHE"] ?? toolsRoot, ".cache", "automation-profile");
 
 let closedTabs = 0;
 try {
-    const browser = await puppeteer.connect({
-        browserURL: "http://localhost:9222",
-        defaultViewport: null,
-    });
-    const pages = await browser.pages();
-    for (const page of pages) {
-        try {
-            await page.close();
-            closedTabs++;
-        } catch (err) {
-            console.warn("Warning: unable to close a tab", err?.message ?? err);
+    const browser = await puppeteer
+        .connect({ browserURL: "http://localhost:9222", defaultViewport: null, protocolTimeout: 2000 })
+        .catch(() => null);
+    if (browser) {
+        const pages = await browser.pages();
+        for (const page of pages) {
+            try {
+                await page.close();
+                closedTabs++;
+            } catch (err) {
+                console.warn("Warning: unable to close a tab", err?.message ?? err);
+            }
         }
+        await browser.disconnect();
     }
-    await browser.disconnect();
 } catch (err) {
     console.warn("Warning: could not connect to Brave to close tabs", err?.message ?? err);
 }
@@ -43,7 +44,7 @@ try {
     const psOutput = execSync("ps -Ao pid=,command=").toString();
     for (const line of psOutput.split("\n")) {
         if (!line.includes("Brave Browser")) continue;
-        if (!line.includes(`--user-data-dir=${cacheDir}`)) continue;
+        if (!line.includes(`--user-data-dir=${profileDir}`)) continue;
         const pid = line.trim().split(/\s+/)[0];
         if (!pid) continue;
         try {
@@ -52,11 +53,11 @@ try {
         } catch {}
     }
 } catch (err) {
-    console.error("Warning: failed to inspect Brave processes", err?.message ?? err);
+    console.warn("Warning: failed to inspect Brave processes", err?.message ?? err);
 }
 
 if (killed > 0) {
     console.log(`✓ Stopped ${killed} automation Brave process${killed === 1 ? "" : "es"}`);
 } else {
-    console.log("ℹ No automation Brave processes found for the current cache directory.");
+    console.log("ℹ No automation Brave processes found for the automation profile directory.");
 }
