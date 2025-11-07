@@ -1,155 +1,179 @@
 #!/usr/bin/env node
 
+import mri from "mri";
 import puppeteer from "puppeteer-core";
 
-const message = process.argv.slice(2).join(" ");
+const argv = mri(process.argv.slice(2), { alias: { h: "help" } });
+const showUsage = () => {
+    console.log("Usage: pick.js 'instruction'");
+    console.log("\nExample:");
+    console.log('  pick.js "Select the login button"');
+};
+
+if (argv.help) {
+    showUsage();
+    process.exit(0);
+}
+
+const message = argv._.join(" ");
 if (!message) {
-	console.log("Usage: pick.js 'message'");
-	console.log("\nExample:");
-	console.log('  pick.js "Click the submit button"');
-	process.exit(1);
+    showUsage();
+    process.exit(1);
 }
 
 const b = await puppeteer.connect({
-	browserURL: "http://localhost:9222",
-	defaultViewport: null,
+    browserURL: "http://localhost:9222",
+    defaultViewport: null,
 });
 
 const p = (await b.pages()).at(-1);
 
 if (!p) {
-	console.error("✗ No active tab found");
-	process.exit(1);
+    console.error("✗ No active tab found");
+    process.exit(1);
 }
 
 // Inject pick() helper into current page
-await p.evaluate(() => {
-	if (!window.pick) {
-		window.pick = async (message) => {
-			if (!message) {
-				throw new Error("pick() requires a message parameter");
-			}
-			return new Promise((resolve) => {
-				const selections = [];
-				const selectedElements = new Set();
+await p.evaluate(
+    (msg) => {
+        if (!window.pick) {
+            window.pick = async (message) => {
+                if (!message) {
+                    throw new Error("pick() requires a message parameter");
+                }
+                return new Promise((resolve) => {
+                    const selections = [];
+                const selectedElements = new Set();
 
-				const overlay = document.createElement("div");
-				overlay.style.cssText =
-					"position:fixed;top:0;left:0;width:100%;height:100%;z-index:2147483647;pointer-events:none";
+                const overlay = document.createElement("div");
+                overlay.style.cssText =
+                    "position:fixed;top:0;left:0;width:100%;height:100%;z-index:2147483647;pointer-events:none";
 
-				const highlight = document.createElement("div");
-				highlight.style.cssText =
-					"position:absolute;border:2px solid #3b82f6;background:rgba(59,130,246,0.1);transition:all 0.1s";
-				overlay.appendChild(highlight);
+                const highlight = document.createElement("div");
+                highlight.style.cssText =
+                    "position:absolute;border:2px solid #3b82f6;background:rgba(59,130,246,0.1);transition:all 0.1s";
+                overlay.appendChild(highlight);
 
-				const banner = document.createElement("div");
-				banner.style.cssText =
-					"position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1f2937;color:white;padding:12px 24px;border-radius:8px;font:14px sans-serif;box-shadow:0 4px 12px rgba(0,0,0,0.3);pointer-events:auto;z-index:2147483647";
+                const banner = document.createElement("div");
+                banner.style.cssText =
+                    "position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1f2937;color:white;padding:12px 24px;border-radius:8px;font:14px sans-serif;box-shadow:0 4px 12px rgba(0,0,0,0.3);pointer-events:auto;z-index:2147483647";
 
-				const updateBanner = () => {
-					banner.textContent = `${message} (${selections.length} selected, Cmd/Ctrl+click to add, Enter to finish, ESC to cancel)`;
-				};
-				updateBanner();
+                const headline = document.createElement("div");
+                headline.textContent = "Click the element you want the agent to use";
+                headline.style.cssText =
+                    "position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#111827;color:white;padding:10px 20px;border-radius:999px;font:14px sans-serif;box-shadow:0 4px 12px rgba(0,0,0,0.3);pointer-events:none;z-index:2147483647";
 
-				document.body.append(banner, overlay);
+                const updateBanner = () => {
+                    banner.textContent = `${message} (${selections.length} selected, Cmd/Ctrl+click to add, Enter to finish, ESC to cancel)`;
+                };
+                updateBanner();
 
-				const cleanup = () => {
-					document.removeEventListener("mousemove", onMove, true);
-					document.removeEventListener("click", onClick, true);
-					document.removeEventListener("keydown", onKey, true);
-					overlay.remove();
-					banner.remove();
-					selectedElements.forEach((el) => {
-						el.style.outline = "";
-					});
-				};
+                document.body.append(banner, overlay, headline);
 
-				const onMove = (e) => {
-					const el = document.elementFromPoint(e.clientX, e.clientY);
-					if (!el || overlay.contains(el) || banner.contains(el)) return;
-					const r = el.getBoundingClientRect();
-					highlight.style.cssText = `position:absolute;border:2px solid #3b82f6;background:rgba(59,130,246,0.1);top:${r.top}px;left:${r.left}px;width:${r.width}px;height:${r.height}px`;
-				};
+                const cleanup = (clearHighlights = true) => {
+                    document.removeEventListener("mousemove", onMove, true);
+                    document.removeEventListener("click", onClick, true);
+                    document.removeEventListener("keydown", onKey, true);
+                    overlay.remove();
+                    banner.remove();
+                    headline.remove();
+                    if (clearHighlights) {
+                        selectedElements.forEach((el) => {
+                            el.style.outline = "";
+                        });
+                    }
+                };
 
-				const buildElementInfo = (el) => {
-					const parents = [];
-					let current = el.parentElement;
-					while (current && current !== document.body) {
-						const parentInfo = current.tagName.toLowerCase();
-						const id = current.id ? `#${current.id}` : "";
-						const cls = current.className
-							? `.${current.className.trim().split(/\s+/).join(".")}`
-							: "";
-						parents.push(parentInfo + id + cls);
-						current = current.parentElement;
-					}
+                const onMove = (e) => {
+                    const el = document.elementFromPoint(e.clientX, e.clientY);
+                    if (!el || overlay.contains(el) || banner.contains(el)) return;
+                    const r = el.getBoundingClientRect();
+                    highlight.style.cssText = `position:absolute;border:2px solid #3b82f6;background:rgba(59,130,246,0.1);top:${r.top}px;left:${r.left}px;width:${r.width}px;height:${r.height}px`;
+                };
 
-					return {
-						tag: el.tagName.toLowerCase(),
-						id: el.id || null,
-						class: el.className || null,
-						text: el.textContent?.trim().slice(0, 200) || null,
-						html: el.outerHTML.slice(0, 500),
-						parents: parents.join(" > "),
-					};
-				};
+                const buildElementInfo = (el) => {
+                    const parents = [];
+                    let current = el.parentElement;
+                    while (current && current !== document.body) {
+                        const parentInfo = current.tagName.toLowerCase();
+                        const id = current.id ? `#${current.id}` : "";
+                        const cls = current.className
+                            ? `.${current.className.trim().split(/\s+/).join(".")}`
+                            : "";
+                        parents.push(parentInfo + id + cls);
+                        current = current.parentElement;
+                    }
 
-				const onClick = (e) => {
-					if (banner.contains(e.target)) return;
-					e.preventDefault();
-					e.stopPropagation();
-					const el = document.elementFromPoint(e.clientX, e.clientY);
-					if (!el || overlay.contains(el) || banner.contains(el)) return;
+                    return {
+                        tag: el.tagName.toLowerCase(),
+                        id: el.id || null,
+                        class: el.className || null,
+                        text: el.textContent?.trim().slice(0, 200) || null,
+                        html: el.outerHTML.slice(0, 500),
+                        parents: parents.join(" > "),
+                    };
+                };
 
-					if (e.metaKey || e.ctrlKey) {
-						if (!selectedElements.has(el)) {
-							selectedElements.add(el);
-							el.style.outline = "3px solid #10b981";
-							selections.push(buildElementInfo(el));
-							updateBanner();
-						}
-					} else {
-						cleanup();
-						const info = buildElementInfo(el);
-						resolve(selections.length > 0 ? selections : info);
-					}
-				};
+                const onClick = (e) => {
+                    if (banner.contains(e.target)) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const el = document.elementFromPoint(e.clientX, e.clientY);
+                    if (!el || overlay.contains(el) || banner.contains(el)) return;
 
-				const onKey = (e) => {
-					if (e.key === "Escape") {
-						e.preventDefault();
-						cleanup();
-						resolve(null);
-					} else if (e.key === "Enter" && selections.length > 0) {
-						e.preventDefault();
-						cleanup();
-						resolve(selections);
-					}
-				};
+                    if (e.metaKey || e.ctrlKey) {
+                        if (!selectedElements.has(el)) {
+                            selectedElements.add(el);
+                            el.style.outline = "3px solid #10b981";
+                            selections.push(buildElementInfo(el));
+                            updateBanner();
+                        }
+                    } else {
+                        cleanup(false);
+                        const info = buildElementInfo(el);
+                        resolve(selections.length > 0 ? selections : info);
+                    }
+                };
 
-				document.addEventListener("mousemove", onMove, true);
-				document.addEventListener("click", onClick, true);
-				document.addEventListener("keydown", onKey, true);
-			});
-		};
-	}
-});
+                const onKey = (e) => {
+                    if (e.key === "Escape") {
+                        e.preventDefault();
+                        cleanup();
+                        resolve(null);
+                    } else if (e.key === "Enter" && selections.length > 0) {
+                        e.preventDefault();
+                        cleanup(false);
+                        resolve(selections);
+                    }
+                };
+
+                document.addEventListener("mousemove", onMove, true);
+                document.addEventListener("click", onClick, true);
+                document.addEventListener("keydown", onKey, true);
+            });
+            };
+        }
+    },
+    message,
+);
+
+console.log("Picker ready – click the element and press Enter when done…");
 
 const result = await p.evaluate((msg) => window.pick(msg), message);
 
 if (Array.isArray(result)) {
-	for (let i = 0; i < result.length; i++) {
-		if (i > 0) console.log("");
-		for (const [key, value] of Object.entries(result[i])) {
-			console.log(`${key}: ${value}`);
-		}
-	}
+    for (let i = 0; i < result.length; i++) {
+        if (i > 0) console.log("");
+        for (const [key, value] of Object.entries(result[i])) {
+            console.log(`${key}: ${value}`);
+        }
+    }
 } else if (typeof result === "object" && result !== null) {
-	for (const [key, value] of Object.entries(result)) {
-		console.log(`${key}: ${value}`);
-	}
+    for (const [key, value] of Object.entries(result)) {
+        console.log(`${key}: ${value}`);
+    }
 } else {
-	console.log(result);
+    console.log(result);
 }
 
 await b.disconnect();

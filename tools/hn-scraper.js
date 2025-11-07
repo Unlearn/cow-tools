@@ -4,9 +4,9 @@
  * Hacker News Scraper
  *
  * Fetches and parses submissions from Hacker News front page.
- * Usage: node tools/hn-scraper.js [--limit <number>]
  */
 
+import mri from 'mri';
 import * as cheerio from 'cheerio';
 
 /**
@@ -85,14 +85,24 @@ async function scrapeHackerNews(limit = 30) {
 
 // CLI interface
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const args = process.argv.slice(2);
-  let limit = 30;
+  const argv = mri(process.argv.slice(2), {
+    alias: { h: 'help', l: 'limit' },
+    default: { limit: 30 },
+  });
 
-  // Parse --limit argument
-  const limitIndex = args.indexOf('--limit');
-  if (limitIndex !== -1 && args[limitIndex + 1]) {
-    limit = parseInt(args[limitIndex + 1]);
+  const showUsage = () => {
+    console.log("Usage: hn-scraper.js [--limit N]");
+    console.log("\nExample:");
+    console.log("  hn-scraper.js --limit 10");
+  };
+
+  if (argv.help) {
+    showUsage();
+    process.exit(0);
   }
+
+  let limit = Number(argv.limit) || 30;
+  limit = Math.max(1, Math.min(limit, 200));
 
   scrapeHackerNews(limit)
     .then(submissions => {

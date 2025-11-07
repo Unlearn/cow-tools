@@ -1,26 +1,33 @@
 #!/usr/bin/env node
 
+import mri from "mri";
 import * as cheerio from "cheerio";
 
-const args = process.argv.slice(2);
-if (args.length === 0) {
-	console.log("Usage: ddg-search.js <query> [--limit N]");
-	console.log("\nExample:");
-	console.log('  ddg-search.js "site:example.com login" --limit 5');
+const argv = mri(process.argv.slice(2), {
+    alias: { h: "help", l: "limit" },
+    default: { limit: 10 },
+});
+
+const showUsage = () => {
+    console.log("Usage: ddg-search.js <query> [--limit N]");
+    console.log("\nExamples:");
+    console.log('  ddg-search.js "site:example.com login"');
+    console.log('  ddg-search.js "best restaurants" --limit 5');
+};
+
+if (argv.help) {
+    showUsage();
+    process.exit(0);
+}
+
+const query = argv._.join(" ");
+if (!query) {
+    showUsage();
     process.exit(1);
 }
 
-let limit = 10;
-const limitIndex = args.indexOf("--limit");
-if (limitIndex !== -1) {
-    const limitValue = Number(args[limitIndex + 1]);
-    if (!Number.isNaN(limitValue) && limitValue > 0) {
-        limit = Math.min(limitValue, 25);
-    }
-    args.splice(limitIndex, 2);
-}
-
-const query = args.join(" ");
+let limit = Number(argv.limit) || 10;
+limit = Math.min(Math.max(limit, 1), 25);
 
 const BASE_URL = "https://html.duckduckgo.com/html";
 const HEADERS = {

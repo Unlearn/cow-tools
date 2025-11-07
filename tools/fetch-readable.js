@@ -1,23 +1,30 @@
 #!/usr/bin/env node
 
-import fs from "node:fs";
+import mri from "mri";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import puppeteer from "puppeteer-core";
 import TurndownService from "turndown";
 
-const url = process.argv[2];
-const output = process.argv[3];
+const argv = mri(process.argv.slice(2), { alias: { h: "help" } });
+const showUsage = () => {
+    console.log("Usage: fetch-readable.js <url>");
+    console.log("\nExamples:");
+    console.log("  fetch-readable.js https://example.com > article.md");
+    console.log("  fetch-readable.js https://blog.com | rg 'keyword'");
+};
 
-if (!url) {
-	console.log("Usage: fetch-readable.js <url> [output.md]");
-	console.log("\nExamples:");
-	console.log("  fetch-readable.js https://example.com article.md");
-	console.log("  fetch-readable.js https://blog.com");
-    process.exit(1);
+if (argv.help) {
+    showUsage();
+    process.exit(0);
 }
 
-const outFile = output ?? `readable-${Date.now()}.md`;
+const url = argv._[0];
+
+if (!url) {
+    showUsage();
+    process.exit(1);
+}
 
 const b = await puppeteer.connect({
     browserURL: "http://localhost:9222",
@@ -26,7 +33,7 @@ const b = await puppeteer.connect({
 
 const page = (await b.pages()).at(-1);
 if (!page) {
-	console.error("✗ No active tab found. Start Brave via tools/start.js first.");
+    console.error("✗ No active tab found. Start Brave via tools/start.js first.");
     await b.disconnect();
     process.exit(1);
 }
@@ -59,7 +66,6 @@ const turndown = new TurndownService({ headingStyle: "atx" });
 const markdown = turndown.turndown(article.content ?? "");
 const finalContent = `# ${article.title}\n\n${markdown}\n`;
 
-fs.writeFileSync(outFile, finalContent, "utf8");
-console.log(`✓ Saved readable content to ${outFile}`);
+process.stdout.write(finalContent);
 
 await b.disconnect();

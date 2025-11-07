@@ -24,6 +24,15 @@ fi
 
 npm install
 
+# Create local Node shim so agents can run without sourcing nvm
+NODE_BIN="$(command -v node)"
+if [ -n "$NODE_BIN" ]; then
+    mkdir -p "$ROOT/.bin"
+    ln -sf "$NODE_BIN" "$ROOT/.bin/node"
+else
+    echo "Warning: unable to locate node binary for shim creation" >&2
+fi
+
 # Ensure Readability script is up to date for fetch-readable.js
 LIB_DIR="$ROOT/lib"
 READABILITY_URL="https://raw.githubusercontent.com/mozilla/readability/master/Readability.js"
