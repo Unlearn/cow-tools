@@ -4,6 +4,7 @@ import mri from "mri";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import puppeteer from "puppeteer-core";
+import { automationCall } from "./lib/automation.js";
 
 const argv = mri(process.argv.slice(2), { alias: { h: "help" } });
 const showUsage = () => {
@@ -33,20 +34,14 @@ if (!p) {
     process.exit(1);
 }
 
-// Hide automation banner if present to keep screenshots clean
-await p.evaluate(() => {
-    window.__automationHideBanner = true;
-    const banner = document.getElementById("automation-session-banner");
-    if (banner) {
-        banner.style.display = "none";
-    }
-});
+await automationCall(p, "hideBanner");
 
 const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
 const filename = `screenshot-${timestamp}.png`;
 const filepath = join(tmpdir(), filename);
 
 await p.screenshot({ path: filepath });
+await automationCall(p, "showBanner");
 
 console.log(filepath);
 

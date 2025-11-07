@@ -85,14 +85,6 @@ node tools/cookies.js
 
 Prints cookie name/value plus domain/path/httpOnly/secure flags for the active tab.
 
-## Hacker News Scraper
-
-```bash
-node tools/hn-scraper.js [--limit 20]
-```
-
-Fetches and parses the Hacker News front page using `cheerio`. Does **not** require Brave or remote debugging to be running.
-
 ## DuckDuckGo Search
 
 ```bash

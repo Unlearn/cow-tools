@@ -114,7 +114,7 @@ if (!useProfile && !useVisible) {
 if (!useVisible) {
     launchArgs.push("--headless=new", "--disable-gpu");
 } else {
-    const extensionDir = join(toolsRoot, "extensions", "automation-marker");
+    const extensionDir = join(toolsRoot, "extensions", "automation-helper");
     launchArgs.push(
         `--disable-extensions-except=${extensionDir}`,
         `--load-extension=${extensionDir}`,

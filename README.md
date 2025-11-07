@@ -63,6 +63,22 @@ All commands live in `tools/` and use ES modules; invoke them with `node` (e.g.
 Tip: every script supports `--help` for a quick reminder of syntax and
 examples.
 
+### Automation Helper
+Visible sessions load a lightweight helper extension that exposes utilities via
+`window.automation`. You can call these helpers from any script using
+`automationCall(page, command, payload)` (see `tools/lib/automation.js`).
+
+Available commands:
+- `highlight(selector, { color })` / `hideHighlight()`
+- `scrollIntoView(selector, { behavior })`
+- `collectText(selector, limit)`
+- `listClickable(limit)`
+- `hideBanner()` / `showBanner()` for the automation badge
+- `startPicker(message)` (used internally by `pick.js`)
+
+The helper fires an `automation-ready` event once it loads. The bridge in
+`tools/lib/automation.js` waits for that event automatically.
+
 ### `nav.js`
 ```
 node tools/nav.js <url> [--new]
@@ -98,14 +114,8 @@ Prints cookies for the active tab (name, domain, path, flags).
 node tools/screenshot.js
 ```
 Takes a PNG screenshot of the current tab, saving it to your system temp dir
-and echoing the full path.
-
-### `hn-scraper.js`
-```
-node tools/hn-scraper.js [--limit 20]
-```
-Standalone script that fetches and parses the Hacker News front page using
-`cheerio`. Does **not** require a browser session.
+and echoing the full path. Automatically hides the automation badge before
+capturing so images stay clean.
 
 ### `ddg-search.js`
 ```

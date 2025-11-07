@@ -1,13 +1,14 @@
 {
   "manifest_version": 3,
-  "name": "Automation Banner",
-  "version": "1.0.0",
-  "description": "Highlights automation sessions so they are easy to distinguish from personal browsing.",
+  "name": "Automation Session Helper",
+  "version": "1.1.0",
+  "description": "Marks automation tabs, exposes helper APIs, and supports picker/screenshot workflows.",
   "content_scripts": [
     {
       "matches": [
         "<all_urls>"
       ],
+      "world": "MAIN",
       "js": [
         "content.js"
       ],
