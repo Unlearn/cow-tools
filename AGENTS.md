@@ -1,59 +1,89 @@
 # Browser Tools
 
-Chrome DevTools Protocol tools for agent-assisted web automation. These tools connect to Chrome running on `:9222` with remote debugging enabled.
+Lightweight Brave automation helpers built on the Chrome DevTools Protocol. All scripts expect Brave running on `http://localhost:9222` with remote debugging enabled.
 
-## Start Chrome
+## Requirements & Install
+- macOS with Brave at `/Applications/Brave Browser.app`.
+- Node.js 18+ (ES modules + built-in `fetch`). `.nvmrc` pins 20.11.1 when using nvm.
+- From this directory run `./setup.sh` to load the desired Node version, install dependencies (`puppeteer-core`, `cheerio`, `turndown`), and download the latest `lib/Readability.js` used by the fetch-readable tool.
+
+## Start Brave
 
 ```bash
-browser-start.js              # Fresh profile
-browser-start.js --profile    # Copy user's profile (cookies, logins)
+node tools/start.js              # Fresh profile in ~/.cache/scraping
+node tools/start.js --profile    # rsync user's Brave profile first
 ```
 
-Launch Chrome with remote debugging. Use `--profile` to preserve user's authentication state.
+The helper kills existing Brave, launches a new instance on port 9222, and waits until DevTools responds. Keep the browser running while using the other tools.
 
 ## Navigate
 
 ```bash
-browser-nav.js https://example.com
-browser-nav.js https://example.com --new
+node tools/nav.js https://example.com
+node tools/nav.js https://example.com --new
 ```
 
-Navigate to URLs. Use `--new` flag to open in a new tab instead of reusing current tab.
+Navigate the current tab; `--new` opens a separate tab. Errors if no tab is available.
 
 ## Evaluate JavaScript
 
 ```bash
-browser-eval.js 'document.title'
-browser-eval.js 'document.querySelectorAll("a").length'
+node tools/eval.js 'document.title'
+node tools/eval.js 'document.querySelectorAll("a").length'
 ```
 
-Execute JavaScript in the active tab. Code runs in async context. Use this to extract data, inspect page state, or perform DOM operations programmatically.
+Run arbitrary async-friendly JavaScript in the active tab to inspect DOM state or return structured data.
 
 ## Screenshot
 
 ```bash
-browser-screenshot.js
+node tools/screenshot.js
 ```
 
-Capture current viewport and return temporary file path. Use this to visually inspect page state or verify UI changes.
+Saves a PNG of the current viewport into the system temp directory and prints the path.
 
 ## Pick Elements
 
 ```bash
-browser-pick.js "Click the submit button"
+node tools/pick.js "Click the submit button"
 ```
 
-**IMPORTANT**: Use this tool when the user wants to select specific DOM elements on the page. This launches an interactive picker that lets the user click elements to select them. The user can select multiple elements (Cmd/Ctrl+Click) and press Enter when done. The tool returns CSS selectors for the selected elements.
-
-Common use cases:
-- User says "I want to click that button" → Use this tool to let them select it
-- User says "extract data from these items" → Use this tool to let them select the elements
-- When you need specific selectors but the page structure is complex or ambiguous
+Interactive overlay for collecting element metadata. Cmd/Ctrl+click adds to the selection, Enter confirms, Esc cancels. Returns tag/id/class/text/html snippets for each pick.
 
 ## Cookies
 
 ```bash
-browser-cookies.js
+node tools/cookies.js
 ```
 
-Display all cookies for the current tab including domain, path, httpOnly, and secure flags. Use this to debug authentication issues or inspect session state.
+Prints cookie name/value plus domain/path/httpOnly/secure flags for the active tab.
+
+## Hacker News Scraper
+
+```bash
+node tools/hn-scraper.js [--limit 20]
+```
+
+Fetches and parses the Hacker News front page using `cheerio`. Does **not** require Brave or remote debugging to be running.
+
+## DuckDuckGo Search
+
+```bash
+node tools/ddg-search.js "prompt engineering" [--limit 5]
+```
+
+Queries DuckDuckGo's lightweight HTML endpoint and returns JSON results (title, URL, snippet, position). Useful when you need quick search hits without spinning up the browser.
+
+## Fetch Readable Content
+
+```bash
+node tools/fetch-readable.js https://example.com article.md
+```
+
+Loads the page in the active Brave session, injects Mozilla Readability to grab the main article, converts it to Markdown, and saves it locally (default `readable-<timestamp>.md`). Ideal for logged-in or JS-heavy pages where curl/readability isn’t enough.
+
+---
+
+Troubleshooting:
+- `✗ No active tab found` → make sure Brave was started via `tools/start.js` and at least one tab is open.
+- Changing ports or browsers → update `browserURL` in each script.

@@ -4,10 +4,10 @@ import puppeteer from "puppeteer-core";
 
 const code = process.argv.slice(2).join(" ");
 if (!code) {
-	console.log("Usage: browser-eval.js 'code'");
+	console.log("Usage: eval.js 'code'");
 	console.log("\nExamples:");
-	console.log('  browser-eval.js "document.title"');
-	console.log('  browser-eval.js "document.querySelectorAll(\'a\').length"');
+	console.log('  eval.js "document.title"');
+	console.log('  eval.js "document.querySelectorAll(\'a\').length"');
 	process.exit(1);
 }
 
