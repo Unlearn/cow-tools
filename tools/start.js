@@ -6,6 +6,7 @@ import { mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import puppeteer from "puppeteer-core";
+import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
 
 const usage = () => {
     console.log("Usage: start.js [--profile] [--reset]");
@@ -22,6 +23,8 @@ const argv = mri(process.argv.slice(2), {
     alias: { h: "help" },
     boolean: ["profile", "reset"],
 });
+
+ensureBrowserToolsWorkdir("start.js");
 
 if (argv.help) {
     usage();

@@ -4,12 +4,15 @@ import { execSync } from "node:child_process";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import puppeteer from "puppeteer-core";
+import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
 
 if (process.argv.includes("--help")) {
     console.log("Usage: stop.js");
     console.log("\nCloses tabs and terminates any Brave processes launched via tools/start.js.");
     process.exit(0);
 }
+
+ensureBrowserToolsWorkdir("stop.js");
 
 const toolsRoot = fileURLToPath(new URL("../", import.meta.url));
 const profileDir = join(process.env["BROWSER_TOOLS_CACHE"] ?? toolsRoot, ".cache", "automation-profile");

@@ -2,6 +2,7 @@
 
 import mri from "mri";
 import * as cheerio from "cheerio";
+import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
 
 const argv = mri(process.argv.slice(2), {
     alias: { h: "help", l: "limit" },
@@ -19,6 +20,8 @@ if (argv.help) {
     showUsage();
     process.exit(0);
 }
+
+ensureBrowserToolsWorkdir("ddg-search.js");
 
 const query = argv._.join(" ");
 if (!query) {

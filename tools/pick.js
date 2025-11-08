@@ -2,6 +2,7 @@
 
 import mri from "mri";
 import puppeteer from "puppeteer-core";
+import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
 
 const argv = mri(process.argv.slice(2), { alias: { h: "help" } });
 const showUsage = () => {
@@ -14,6 +15,8 @@ if (argv.help) {
     showUsage();
     process.exit(0);
 }
+
+ensureBrowserToolsWorkdir("pick.js");
 
 const message = argv._.join(" ");
 if (!message) {

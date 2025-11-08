@@ -12,20 +12,23 @@ and interact with the most recently focused tab unless otherwise stated.
 
 ## Installation
 ```bash
-# Human setup (run once)
+# Human setup (run once; agents should not invoke this)
 cd ansible/roles/macos/files/ai/browser-tools
 ./setup.sh
-
-# Agent session prep
-export BROWSER_TOOLS=/Users/user/Projects/ansible-macos/ansible/roles/macos/files/ai/browser-tools
-export PATH="$BROWSER_TOOLS/.bin:$BROWSER_TOOLS/tools:$PATH"
-cd "$BROWSER_TOOLS"
 ```
 
 `setup.sh` (human-only) installs dependencies (`puppeteer-core`, `cheerio`,
-`turndown`), refreshes `lib/Readability.js`, and creates `.bin/node`, a shim that
-locks the Node version for agents. After setup, agents just extend PATH as shown
-above—no need to source nvm in each session.
+`turndown`), refreshes `lib/Readability.js`, and creates `.bin/node`, a wrapper
+that pins the discovered Node executable and injects the correct environment.
+**Agents must not run `setup.sh`; if the shim is missing or outdated, ask a
+human to rerun the script.**
+
+For Codex CLI sessions, simply set `workdir` to this directory when invoking
+`shell` commands and run `node tools/<script>.js …`. The wrapper automatically
+sets `BROWSER_TOOLS` and prepends `.bin`/`tools` to `PATH`, so no manual `export`
+or `cd` gymnastics are needed. Each CLI script enforces this by checking the
+current working directory and exiting with instructions if it isn't
+`ansible/roles/macos/files/ai/browser-tools`.
 
 ## Starting Brave for CDP Access
 All CLI tools live under `tools/`. Everything except `ddg-search.js` needs Brave
@@ -143,14 +146,12 @@ Run this when you wrap up a browsing task so subsequent sessions start cleanly
 and no stray Brave window remains open.
 
 ## Test Workflow (no picker)
-Use this flow to exercise every CLI tool end-to-end. Run it from this directory after exporting the documented `BROWSER_TOOLS`/`PATH` variables.
+Use this flow to exercise every CLI tool end-to-end (humans only). Run it from this directory after the initial setup; agents should skip these prep steps.
 
 1. **Prep once**
    ```bash
-   ./setup.sh              # only if dependencies/Readability might be stale
-   export BROWSER_TOOLS=/Users/user/Projects/ansible-macos/ansible/roles/macos/files/ai/browser-tools
-   export PATH="$BROWSER_TOOLS/.bin:$BROWSER_TOOLS/tools:$PATH"
-   cd "$BROWSER_TOOLS"
+   ./setup.sh              # rerun only if dependencies/Readability might be stale
+   cd /Users/user/Projects/ansible-macos/ansible/roles/macos/files/ai/browser-tools
    ```
 2. **Headless session**
    - `node tools/start.js`

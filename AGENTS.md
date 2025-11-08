@@ -5,15 +5,11 @@ Lightweight Brave automation helpers built on the Chrome DevTools Protocol. Ever
 ## Requirements & Install
 - macOS with Brave at `/Applications/Brave Browser.app`.
 - Node.js 18+ (ES modules + built-in `fetch`). `.nvmrc` pins 20.11.1 when using nvm.
-- Initial setup (human-only): run `./setup.sh` once to install dependencies (`puppeteer-core`, `cheerio`, `turndown`), refresh `lib/Readability.js`, and create `.bin/node` which pins the correct Node binary.
-- Agent sessions: in each new shell run:
-  ```bash
-  export BROWSER_TOOLS=/Users/user/Projects/ansible-macos/ansible/roles/macos/files/ai/browser-tools
-  export PATH="$BROWSER_TOOLS/.bin:$BROWSER_TOOLS/tools:$PATH"
-  cd "$BROWSER_TOOLS"
-  ```
-  Then invoke commands with `node ...` (the shim resolves to the pinned version).
-  Every script accepts `--help` for a quick usage reminder.
+- Initial setup (**human-only, never agents**): run `./setup.sh` once to install dependencies (`puppeteer-core`, `cheerio`, `turndown`), refresh `lib/Readability.js`, and create `.bin/node` which pins the correct Node binary. If the shim is missing/outdated, pause and ask a human to rerun the script.
+- Shell usage assumes BSD/macOS userland: prefer BSD-friendly flags (`sed`, `awk`, etc.) and remember `mktemp` templates must end with `XXXXXX` (for example, `mktemp /tmp/readable.XXXXXX`).
+- Agent sessions: after running `setup.sh`, execute commands via `node tools/<script>.js` (or `node tools/<script>.js --help`). The generated `.bin/node` wrapper automatically sets `BROWSER_TOOLS`, prepends `.bin`/`tools` to `PATH`, and execs the pinned Node binary, so no manual `export`/`cd` gymnastics are required.
+- Codex CLI note: each `shell` call runs in a fresh process. Provide `workdir="/Users/user/Projects/ansible-macos/ansible/roles/macos/files/ai/browser-tools"` (or equivalent) and simply invoke `node tools/start.js`, `node tools/nav.js …`, etc.—the shim handles the rest. Avoid embedding `cd`/`export` sequences inside the command string so the harness can track paths correctly.
+- All CLI scripts validate the working directory on startup and exit with an error if you run them from elsewhere. If a command fails immediately with “set the Codex CLI workdir…”, rerun the `shell` call with the correct `workdir` instead of chaining `cd`.
 
 ## Start Brave
 
@@ -97,7 +93,7 @@ node tools/fetch-readable.js https://example.com > article.md
 
 Loads the page in the active Brave session, injects Mozilla Readability to grab the main article, converts it to Markdown, and streams the content to stdout so you can pipe or redirect it. Ideal for logged-in or JS-heavy pages where curl/readability isn’t enough.
 
-**Note:** Prefer piping directly (e.g. `node tools/fetch-readable.js … | rg keyword`). Only redirect to a file when necessary, and if you do, use a temporary path (`tmpfile=$(mktemp /tmp/readable-XXXX.md)`) so nothing lingers in the repo.
+**Note:** Prefer piping directly (e.g. `node tools/fetch-readable.js … | rg keyword`). Only redirect to a file when necessary, and if you do, use a temporary path (e.g. `tmpfile="$(mktemp /tmp/readable.XXXXXX)"` then `node … > "${tmpfile}.md"`), so nothing lingers in the repo.
 
 ## Stop Automation Browser
 

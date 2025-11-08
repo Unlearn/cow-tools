@@ -25,10 +25,38 @@ fi
 npm install
 
 # Create local Node shim so agents can run without sourcing nvm
-NODE_BIN="$(command -v node)"
+NODE_BIN="$(command -v node || true)"
 if [ -n "$NODE_BIN" ]; then
     mkdir -p "$ROOT/.bin"
-    ln -sf "$NODE_BIN" "$ROOT/.bin/node"
+    cat >"$ROOT/.bin/node" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="${ROOT}"
+NODE_BIN="${NODE_BIN}"
+
+export BROWSER_TOOLS="\${BROWSER_TOOLS:-\${ROOT}}"
+
+case ":\$PATH:" in
+    *:"\${ROOT}/.bin":*)
+        ;;
+    *)
+        PATH="\${ROOT}/.bin:\$PATH"
+        ;;
+esac
+
+case ":\$PATH:" in
+    *:"\${ROOT}/tools":*)
+        ;;
+    *)
+        PATH="\${ROOT}/tools:\$PATH"
+        ;;
+esac
+
+export PATH
+exec "\$NODE_BIN" "\$@"
+EOF
+    chmod +x "$ROOT/.bin/node"
 else
     echo "Warning: unable to locate node binary for shim creation" >&2
 fi

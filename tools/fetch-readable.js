@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import puppeteer from "puppeteer-core";
 import TurndownService from "turndown";
+import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
 
 const argv = mri(process.argv.slice(2), { alias: { h: "help" } });
 const showUsage = () => {
@@ -18,6 +19,8 @@ if (argv.help) {
     showUsage();
     process.exit(0);
 }
+
+ensureBrowserToolsWorkdir("fetch-readable.js");
 
 const url = argv._[0];
 

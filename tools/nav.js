@@ -2,6 +2,7 @@
 
 import mri from "mri";
 import puppeteer from "puppeteer-core";
+import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
 
 const argv = mri(process.argv.slice(2), { alias: { h: "help" }, boolean: ["new"] });
 const showUsage = () => {
@@ -15,6 +16,8 @@ if (argv.help) {
     showUsage();
     process.exit(0);
 }
+
+ensureBrowserToolsWorkdir("nav.js");
 
 const url = argv._[0];
 const newTab = Boolean(argv.new);

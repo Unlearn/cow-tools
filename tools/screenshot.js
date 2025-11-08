@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import puppeteer from "puppeteer-core";
 import { automationCall } from "./lib/automation.js";
+import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
 
 const argv = mri(process.argv.slice(2), { alias: { h: "help" } });
 const showUsage = () => {
@@ -16,6 +17,8 @@ if (argv.help) {
     showUsage();
     process.exit(0);
 }
+
+ensureBrowserToolsWorkdir("screenshot.js");
 
 if (argv._.length > 0) {
     showUsage();
