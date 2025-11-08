@@ -61,9 +61,15 @@ try {
         if (!line.includes(`--user-data-dir=${profileDir}`)) continue;
         const pid = line.trim().split(/\s+/)[0];
         if (!pid) continue;
+        const numericPid = Number(pid);
+        if (!Number.isInteger(numericPid)) continue;
         try {
-            execSync(`kill -TERM ${pid}`);
-        } catch {}
+            process.kill(numericPid, "SIGTERM");
+        } catch (err) {
+            if (err?.code !== "ESRCH") {
+                console.warn("Warning: failed to terminate an existing Brave process", err?.message ?? err);
+            }
+        }
     }
 } catch (err) {
     console.warn("Warning: failed to inspect Brave processes", err?.message ?? err);
@@ -92,29 +98,65 @@ spawn(
     { detached: true, stdio: "ignore" },
 ).unref();
 
-let connected = false;
+let browser = null;
 const maxAttempts = 30;
 for (let i = 0; i < maxAttempts; i++) {
     try {
-        const browser = await puppeteer.connect({
+        browser = await puppeteer.connect({
             browserURL: "http://localhost:9222",
             defaultViewport: null,
         });
-        await browser.disconnect();
-        connected = true;
         break;
     } catch {
         await new Promise((r) => setTimeout(r, 500));
     }
 }
 
-if (!connected) {
+if (!browser) {
     console.error("✗ Failed to connect to Brave");
     process.exit(1);
 }
 
+let automationReady = true;
+if (useProfile) {
+    try {
+        const page = await browser.newPage();
+        try {
+            await page.goto("https://example.com", { waitUntil: "domcontentloaded" });
+            automationReady = await page.evaluate((timeout) => {
+                if (window.__automationReady) {
+                    return true;
+                }
+                return new Promise((resolve) => {
+                    const timer = setTimeout(() => resolve(false), timeout);
+                    window.addEventListener(
+                        "automation-ready",
+                        () => {
+                            clearTimeout(timer);
+                            resolve(true);
+                        },
+                        { once: true },
+                    );
+                });
+            }, 2000);
+        } finally {
+            await page.close();
+        }
+    } catch (err) {
+        automationReady = false;
+        console.warn("Warning: unable to verify automation helper", err?.message ?? err);
+    }
+}
+
+await browser.disconnect();
+
 if (useProfile) {
     console.log("✓ Brave started on :9222 (visible automation profile)");
+    if (!automationReady) {
+        console.warn(
+            "⚠ Automation helper extension did not signal ready; CLI tools will inject a fallback helper automatically, but rerun with --reset if you expect the extension.",
+        );
+    }
 } else {
     console.log("✓ Brave started on :9222 (headless incognito)");
 }

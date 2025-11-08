@@ -72,7 +72,9 @@ Available commands:
 - `startPicker(message)` (used internally by `pick.js`)
 
 The helper fires an `automation-ready` event once it loads. The bridge in
-`tools/lib/automation.js` waits for that event automatically.
+`tools/lib/automation.js` waits for that event automatically and, if the helper
+extension fails to load (for example, in headless mode), it injects the same
+logic directly so downstream tools keep working.
 
 ### `nav.js`
 ```
@@ -138,10 +140,37 @@ directory (`./.cache/automation-profile` or its `BROWSER_TOOLS_CACHE` override).
 Run this when you wrap up a browsing task so subsequent sessions start cleanly
 and no stray Brave window remains open.
 
+## Test Workflow (no picker)
+Use this flow to exercise every CLI tool end-to-end. Run it from this directory after exporting the documented `BROWSER_TOOLS`/`PATH` variables.
+
+1. **Prep once**
+   ```bash
+   ./setup.sh              # only if dependencies/Readability might be stale
+   export BROWSER_TOOLS=/Users/user/Projects/ansible-macos/ansible/roles/macos/files/ai/browser-tools
+   export PATH="$BROWSER_TOOLS/.bin:$BROWSER_TOOLS/tools:$PATH"
+   cd "$BROWSER_TOOLS"
+   ```
+2. **Headless session**
+   - `node tools/start.js`
+   - `node tools/nav.js https://example.com`
+   - `node tools/eval.js 'document.title'`
+   - `node tools/nav.js https://news.ycombinator.com` (or any site that sets cookies immediately)
+   - `node tools/cookies.js` (should print at least one cookie)
+   - `node tools/ddg-search.js "automation helpers" --limit 5`
+   - `node tools/stop.js`
+3. **Visible profile session**
+   - `node tools/start.js --profile --reset`
+   - `node tools/nav.js https://example.org --new`
+  - `node tools/eval.js 'window.__automationReady ?? false'` (should be `true`; if not, `start.js` logs a warning and the CLI falls back to inline injection)
+   - `node tools/eval.js 'window.automation ? (window.automation.hideBanner(), setTimeout(() => window.automation.showBanner(), 500), "banner toggled") : "automation helper unavailable"'`
+   - `node tools/screenshot.js`
+   - `node tools/fetch-readable.js https://example.org > /tmp/article.md` (inspect output)
+   - Navigate to a site with cookies (or set one manually via `node tools/eval.js '(()=>{document.cookie="foo=bar";return document.cookie;})()'`) and rerun `node tools/cookies.js`
+   - `node tools/eval.js 'Array.from(document.links).length'`
+   - `node tools/stop.js` (run twice; second call should report no automation processes)
+
 ## Tips
 - Always run the commands from this directory or add `tools/` to your PATH so the
   local `node_modules` can be resolved.
 - If any script reports `✗ No active tab found`, ensure Brave is running via
   `tools/start.js` and at least one tab is open.
-- When changing ports or browser flavors, edit the shared
-  `browserURL: "http://localhost:9222"` definitions accordingly.

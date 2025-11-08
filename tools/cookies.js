@@ -33,13 +33,17 @@ if (!p) {
 
 const cookies = await p.cookies();
 
-for (const cookie of cookies) {
-    console.log(`${cookie.name}: ${cookie.value}`);
-    console.log(`  domain: ${cookie.domain}`);
-    console.log(`  path: ${cookie.path}`);
-    console.log(`  httpOnly: ${cookie.httpOnly}`);
-    console.log(`  secure: ${cookie.secure}`);
-    console.log("");
+if (cookies.length === 0) {
+    console.log("ℹ No cookies found for the active tab.");
+} else {
+    for (const cookie of cookies) {
+        console.log(`${cookie.name}: ${cookie.value}`);
+        console.log(`  domain: ${cookie.domain}`);
+        console.log(`  path: ${cookie.path}`);
+        console.log(`  httpOnly: ${cookie.httpOnly}`);
+        console.log(`  secure: ${cookie.secure}`);
+        console.log("");
+    }
 }
 
 await b.disconnect();

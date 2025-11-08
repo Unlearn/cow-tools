@@ -47,10 +47,16 @@ try {
         if (!line.includes(`--user-data-dir=${profileDir}`)) continue;
         const pid = line.trim().split(/\s+/)[0];
         if (!pid) continue;
+        const numericPid = Number(pid);
+        if (!Number.isInteger(numericPid)) continue;
         try {
-            execSync(`kill -TERM ${pid}`);
+            process.kill(numericPid, "SIGTERM");
             killed++;
-        } catch {}
+        } catch (err) {
+            if (err?.code !== "ESRCH") {
+                console.warn("Warning: failed to terminate Brave process", err?.message ?? err);
+            }
+        }
     }
 } catch (err) {
     console.warn("Warning: failed to inspect Brave processes", err?.message ?? err);
