@@ -69,8 +69,9 @@ node tools/pick.js "Click the submit button"
 Interactive overlay for collecting element metadata. Cmd/Ctrl+click adds to the
 selection, Enter confirms, Esc cancels. Returns tag/id/class/text/html snippets
 for each pick. Requires a visible browser session (`node tools/start.js --profile`).
-Highlights now stay visible until you click elsewhere or press Enter/Esc so you
-can confirm the selection without racing a timeout.
+Highlights stay visible until you click elsewhere or press Enter/Esc so you can
+confirm the selection without racing a timeout, and single clicks aren’t committed
+until you press Enter—click another element to replace the pending selection.
 
 ## Cookies
 

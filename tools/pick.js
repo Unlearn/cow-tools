@@ -66,7 +66,12 @@ await p.evaluate(() => {
                 "position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#111827;color:white;padding:10px 20px;border-radius:999px;font:14px sans-serif;box-shadow:0 4px 12px rgba(0,0,0,0.3);pointer-events:none;z-index:2147483647";
 
             const updateBanner = () => {
-                banner.textContent = `${message} (${selections.length} selected, Cmd/Ctrl+click to add, Enter to finish, ESC to cancel)`;
+                const base = `${message} (${selections.length} selected, Cmd/Ctrl+click to add, Enter to finish, ESC to cancel)`;
+                if (selections.length === 1) {
+                    banner.textContent = `${base}. Click another element to change the selection.`;
+                } else {
+                    banner.textContent = base;
+                }
             };
             updateBanner();
 
@@ -113,6 +118,14 @@ await p.evaluate(() => {
                 highlight.style.cssText = `position:absolute;border:2px solid #3b82f6;background:rgba(59,130,246,0.1);top:${r.top}px;left:${r.left}px;width:${r.width}px;height:${r.height}px`;
             };
 
+            const clearSelections = () => {
+                selectedElements.forEach((el) => {
+                    el.style.outline = "";
+                });
+                selectedElements.clear();
+                selections.length = 0;
+            };
+
             const onClick = (e) => {
                 if (banner.contains(e.target)) return;
                 e.preventDefault();
@@ -128,9 +141,11 @@ await p.evaluate(() => {
                         updateBanner();
                     }
                 } else {
-                    cleanup(false);
-                    const info = buildElementInfo(el);
-                    resolve(selections.length > 0 ? selections : info);
+                    clearSelections();
+                    selectedElements.add(el);
+                    el.style.outline = "3px solid #10b981";
+                    selections.push(buildElementInfo(el));
+                    updateBanner();
                 }
             };
 
@@ -142,7 +157,11 @@ await p.evaluate(() => {
                 } else if (e.key === "Enter" && selections.length > 0) {
                     e.preventDefault();
                     cleanup(false);
-                    resolve(selections);
+                    if (selections.length === 1) {
+                        resolve(selections[0]);
+                    } else {
+                        resolve(selections);
+                    }
                 }
             };
 

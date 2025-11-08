@@ -98,7 +98,9 @@ Injects a visual picker overlay to capture element metadata. Supports multi-
 select via Cmd/Ctrl+click, `Enter` to finish, `Esc` to cancel. Requires a visible
 browser session (`node tools/start.js --profile`). The highlight now stays on the
 selection until you click elsewhere or press Enter/Esc, so you can visually
-confirm what was chosen.
+confirm what was chosen. Single clicks aren’t committed until you press Enter,
+so you can click a different element to replace the pending selection without
+rerunning the command.
 
 ### `cookies.js`
 ```
