@@ -113,11 +113,12 @@ Prints cookies for the active tab (name, domain, path, flags).
 
 ### `screenshot.js`
 ```
-node tools/screenshot.js
+node tools/screenshot.js [--selector "#main"] [--viewport]
 ```
-Takes a PNG screenshot of the current tab, saving it to your system temp dir
-and echoing the full path. Automatically hides the automation badge before
-capturing so images stay clean.
+Captures the current tab to a PNG in the system temp dir (full-page by default)
+and echoes the path. Pass `--selector` to capture a specific element only, or
+`--viewport` to restrict the shot to the visible area. The automation badge is
+temporarily hidden so images stay clean.
 
 ### `ddg-search.js`
 ```

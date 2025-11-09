@@ -89,7 +89,7 @@ const launchArgs = [
 ];
 
 if (!useProfile) {
-    launchArgs.push("--incognito", "--headless=new", "--disable-gpu");
+    launchArgs.push("--incognito", "--headless=new", "--disable-gpu", "--window-size=2560,1440");
 } else {
     const extensionDir = join(toolsRoot, "extensions", "automation-helper");
     launchArgs.push(`--disable-extensions-except=${extensionDir}`, `--load-extension=${extensionDir}`);

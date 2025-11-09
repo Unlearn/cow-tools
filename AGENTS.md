@@ -51,10 +51,12 @@ Run arbitrary async-friendly JavaScript in the active tab to inspect DOM state o
 ## Screenshot
 
 ```bash
-node tools/screenshot.js
+node tools/screenshot.js [--selector "#main"] [--viewport]
 ```
 
-Saves a PNG of the current viewport into the system temp directory and prints the path.
+Captures a PNG in the system temp directory (full page by default) and prints the
+path. Use `--selector` to capture only a specific element or `--viewport` to limit the
+shot to what’s currently visible.
 
 ## Pick Elements
 
