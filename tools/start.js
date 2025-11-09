@@ -38,6 +38,7 @@ if (argv._.length > 0) {
 
 const useProfile = Boolean(argv.profile);
 const resetProfile = Boolean(argv.reset);
+const windowSize = process.env.BROWSER_TOOLS_WINDOW_SIZE ?? "2560,1440";
 
 if (resetProfile && !useProfile) {
     console.warn("⚠ Ignoring --reset because no persistent profile is in use");
@@ -89,10 +90,14 @@ const launchArgs = [
 ];
 
 if (!useProfile) {
-    launchArgs.push("--incognito", "--headless=new", "--disable-gpu", "--window-size=2560,1440");
+    launchArgs.push("--incognito", "--headless=new", "--disable-gpu", `--window-size=${windowSize}`);
 } else {
     const extensionDir = join(toolsRoot, "extensions", "automation-helper");
-    launchArgs.push(`--disable-extensions-except=${extensionDir}`, `--load-extension=${extensionDir}`);
+    launchArgs.push(
+        `--disable-extensions-except=${extensionDir}`,
+        `--load-extension=${extensionDir}`,
+        `--window-size=${windowSize}`,
+    );
 }
 
 spawn(

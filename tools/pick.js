@@ -159,7 +159,7 @@ await p.evaluate(() => {
                     resolve(null);
                 } else if (e.key === "Enter" && selections.length > 0) {
                     e.preventDefault();
-                    cleanup(false);
+                    cleanup(true);
                     if (selections.length === 1) {
                         resolve(selections[0]);
                     } else {
