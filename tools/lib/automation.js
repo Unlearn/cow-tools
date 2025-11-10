@@ -54,10 +54,62 @@ export async function automationCall(page, command, payload = []) {
         return null;
     }
     return page.evaluate((cmd, data) => {
-        if (!window.automation || typeof window.automation[cmd] !== 'function') {
+        if (!window.automation || typeof window.automation[cmd] !== "function") {
             return null;
         }
         const args = Array.isArray(data) ? data : [data];
         return window.automation[cmd](...args);
     }, command, payload);
+}
+
+export async function dismissCookieBanners(page) {
+    const selectors = [
+        "#onetrust-accept-btn-handler",
+        "button[aria-label='Accept all']",
+        "button[aria-label='Accept All']",
+        "button[data-testid='accept-btn']",
+        "button[data-testid='accept-all']",
+        "button[mode='primary'][data-testid='ConsentBanner-Accept']",
+        "button[title='Accept']",
+        "button:contains('Accept all')",
+        "button:contains('I agree')",
+        "button:contains('Allow all')",
+        "div[role='dialog'] button:nth-child(1)",
+    ];
+
+    await page.evaluate((candidates) => {
+        const find = (root) => {
+            for (const selector of candidates) {
+                const el = root.querySelector?.(selector);
+                if (el) return el;
+            }
+            return null;
+        };
+
+        const clickElement = (el) => {
+            el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+        };
+
+        const iframeSelector = "iframe";
+        const topCandidate = find(document);
+        if (topCandidate) {
+            clickElement(topCandidate);
+            return true;
+        }
+
+        for (const iframe of document.querySelectorAll(iframeSelector)) {
+            try {
+                const doc = iframe.contentDocument || iframe.contentWindow?.document;
+                if (!doc) continue;
+                const candidate = find(doc);
+                if (candidate) {
+                    clickElement(candidate);
+                    return true;
+                }
+            } catch {
+                continue;
+            }
+        }
+        return false;
+    }, selectors);
 }

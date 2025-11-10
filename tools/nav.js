@@ -3,6 +3,7 @@
 import mri from "mri";
 import puppeteer from "puppeteer-core";
 import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
+import { dismissCookieBanners } from "./lib/automation.js";
 
 const argv = mri(process.argv.slice(2), { alias: { h: "help" }, boolean: ["new"] });
 const showUsage = () => {
@@ -35,6 +36,7 @@ const b = await puppeteer.connect({
 if (newTab) {
     const p = await b.newPage();
     await p.goto(url, { waitUntil: "domcontentloaded" });
+    await dismissCookieBanners(p).catch(() => {});
     console.log("✓ Opened:", url);
 } else {
     const pages = await b.pages();
@@ -47,6 +49,7 @@ if (newTab) {
     }
 
     await p.goto(url, { waitUntil: "domcontentloaded" });
+    await dismissCookieBanners(p).catch(() => {});
     console.log("✓ Navigated to:", url);
 }
 
