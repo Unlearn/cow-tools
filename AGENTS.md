@@ -28,6 +28,9 @@ node tools/start.js [--profile] [--reset]
   launches a fresh one on :9222, and waits until DevTools responds. Keep the
   automation browser running while using other tools, and run
   `node tools/stop.js` when you’re done.
+- Environment overrides: set `BROWSER_TOOLS_WINDOW_SIZE` (default `2560,1440`)
+  or `BROWSER_TOOLS_USER_AGENT` (defaults to a modern macOS Chrome UA) when you
+  need alternate viewports/agents.
 
 ## Navigate
 

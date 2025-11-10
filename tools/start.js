@@ -39,6 +39,9 @@ if (argv._.length > 0) {
 const useProfile = Boolean(argv.profile);
 const resetProfile = Boolean(argv.reset);
 const windowSize = process.env.BROWSER_TOOLS_WINDOW_SIZE ?? "2560,1440";
+const userAgent =
+    process.env.BROWSER_TOOLS_USER_AGENT ??
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 
 if (resetProfile && !useProfile) {
     console.warn("⚠ Ignoring --reset because no persistent profile is in use");
@@ -87,10 +90,11 @@ const launchArgs = [
     "--no-first-run",
     "--no-default-browser-check",
     "--disable-dev-shm-usage",
+    `--user-agent=${userAgent}`,
 ];
 
 if (!useProfile) {
-    launchArgs.push("--incognito", "--headless=new", "--disable-gpu", `--window-size=${windowSize}`);
+    launchArgs.push("--incognito", "--headless=new", `--window-size=${windowSize}`);
 } else {
     const extensionDir = join(toolsRoot, "extensions", "automation-helper");
     launchArgs.push(
@@ -123,6 +127,19 @@ for (let i = 0; i < maxAttempts; i++) {
 if (!browser) {
     console.error("✗ Failed to connect to Brave");
     process.exit(1);
+}
+
+try {
+    const pages = await browser.pages();
+    await Promise.all(
+        pages.map((p) =>
+            p.setUserAgent(userAgent).catch(() => {
+                /* ignore */
+            }),
+        ),
+    );
+} catch (err) {
+    console.warn("Warning: unable to set user agent on existing pages", err?.message ?? err);
 }
 
 let automationReady = true;

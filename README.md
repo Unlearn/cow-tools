@@ -50,6 +50,9 @@ node tools/start.js [--profile] [--reset]
 - The script terminates only previous automation instances that used this
   profile path, launches a fresh one, and waits until DevTools responds before
   exiting with `✓ Brave started on :9222`.
+- Set `BROWSER_TOOLS_WINDOW_SIZE` to override the default `2560,1440` viewport
+  or `BROWSER_TOOLS_USER_AGENT` to spoof a specific UA string (otherwise a
+  modern Chrome-on-macOS UA is used).
 
 You can manually confirm connectivity via `curl http://localhost:9222/json/version`.
 
