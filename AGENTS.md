@@ -96,6 +96,9 @@ node tools/fetch-readable.js https://example.com > article.md
 Loads the page in the active Brave session, injects Mozilla Readability to grab the main article, converts it to Markdown, and streams the content to stdout so you can pipe or redirect it. Ideal for logged-in or JS-heavy pages where curl/readability isn’t enough.
 
 **Note:** Prefer piping directly (e.g. `node tools/fetch-readable.js … | rg keyword`). Only redirect to a file when necessary, and if you do, use a temporary path (e.g. `tmpfile="$(mktemp /tmp/readable.XXXXXX)"` then `node … > "${tmpfile}.md"`), so nothing lingers in the repo.
+**Policy:** Avoid `curl`/`wget` for article content—spin up Brave with `node tools/start.js` and use `fetch-readable.js` (or `nav.js` + `screenshot.js`) so the output is normalized to Markdown. Reserve raw HTTP fetches for lightweight API calls or status checks and call out the reason if you must use them.
+
+When you capture screenshots, share them by running `open /path/to/file.png` so the user sees the image immediately. The screenshot tool returns a temp-file path—opening it is expected unless told otherwise.
 
 ## Stop Automation Browser
 

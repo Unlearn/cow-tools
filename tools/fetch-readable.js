@@ -41,6 +41,8 @@ if (!page) {
     process.exit(1);
 }
 
+await page.setBypassCSP(true).catch(() => {});
+
 await page.goto(url, { waitUntil: "domcontentloaded" });
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
