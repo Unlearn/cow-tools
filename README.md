@@ -13,7 +13,7 @@ and interact with the most recently focused tab unless otherwise stated.
 ## Installation
 ```bash
 # Human setup (run once; agents should not invoke this)
-cd ansible/roles/macos/files/ai/browser-tools
+cd /Users/user/Projects/cow-tools
 ./setup.sh
 ```
 
@@ -27,8 +27,11 @@ For Codex CLI sessions, simply set `workdir` to this directory when invoking
 `shell` commands and run `node tools/<script>.js …`. The wrapper automatically
 sets `BROWSER_TOOLS` and prepends `.bin`/`tools` to `PATH`, so no manual `export`
 or `cd` gymnastics are needed. Each CLI script enforces this by checking the
-current working directory and exiting with instructions if it isn't
-`ansible/roles/macos/files/ai/browser-tools`.
+current working directory. If you forget to set `workdir` to
+`/Users/user/Projects/cow-tools/browser-tools`, the helpers now auto-switch into
+that directory (emitting a warning outside CI) so scripts keep running. Set the
+workdir explicitly to avoid the warning and guarantee predictable relative
+paths.
 
 ## Starting Brave for CDP Access
 All CLI tools live under `tools/`. Everything except `ddg-search.js` needs Brave
@@ -155,7 +158,7 @@ Use this flow to exercise every CLI tool end-to-end (humans only). Run it from t
 1. **Prep once**
    ```bash
    ./setup.sh              # rerun only if dependencies/Readability might be stale
-   cd /Users/user/Projects/ansible-macos/ansible/roles/macos/files/ai/browser-tools
+   cd /Users/user/Projects/cow-tools
    ```
 2. **Headless session**
    - `node tools/start.js`
