@@ -8,8 +8,9 @@ Lightweight Brave automation helpers built on the Chrome DevTools Protocol. Ever
 - Initial setup (**human-only, never agents**): run `./setup.sh` once to install dependencies (`puppeteer-core`, `cheerio`, `turndown`), refresh `lib/Readability.js`, and create `.bin/node` which pins the correct Node binary. If the shim is missing/outdated, pause and ask a human to rerun the script.
 - Shell usage assumes BSD/macOS userland: prefer BSD-friendly flags (`sed`, `awk`, etc.) and remember `mktemp` templates must end with `XXXXXX` (for example, `mktemp /tmp/readable.XXXXXX`).
 - Agent sessions: after running `setup.sh`, execute commands via `node tools/<script>.js` (or `node tools/<script>.js --help`). The generated `.bin/node` wrapper automatically sets `BROWSER_TOOLS`, prepends `.bin`/`tools` to `PATH`, and execs the pinned Node binary, so no manual `export`/`cd` gymnastics are required.
-- Codex CLI note: each `shell` call runs in a fresh process. Provide `workdir="/Users/user/Projects/ansible-macos/ansible/roles/macos/files/ai/browser-tools"` (or equivalent) and simply invoke `node tools/start.js`, `node tools/nav.js …`, etc.—the shim handles the rest. Avoid embedding `cd`/`export` sequences inside the command string so the harness can track paths correctly.
-- All CLI scripts validate the working directory on startup and exit with an error if you run them from elsewhere. If a command fails immediately with “set the Codex CLI workdir…”, rerun the `shell` call with the correct `workdir` instead of chaining `cd`.
+- Each `shell` call runs in a fresh process. The helpers now auto-switch into the correct path, if you forget, but set `workdir="/Users/user/Projects/cow-tools/browser-tools"` in the CLI to avoid the warning and ensure predictable relative paths.
+- Once there, simply invoke `node tools/start.js`, `node tools/nav.js …`, etc.—the shim handles the rest. Avoid embedding `cd`/`export` sequences inside the command string so the harness can track paths correctly.
+- All CLI scripts validate the working directory on startup and will exit only if they can’t switch automatically (for example, the repo isn’t checked out). If a command still fails immediately with “set the Codex CLI workdir…”, rerun the `shell` call with the correct `workdir` instead of chaining `cd`.
 
 ## Start Brave
 
