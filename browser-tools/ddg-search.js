@@ -32,7 +32,7 @@ if (!query) {
 let limit = Number(argv.limit) || 10;
 limit = Math.min(Math.max(limit, 1), 25);
 
-const BASE_URL = "https://html.duckduckgo.com/html";
+const BASE_URL = process.env.DDG_BASE_URL || "https://html.duckduckgo.com/html";
 const HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     "Content-Type": "application/x-www-form-urlencoded",

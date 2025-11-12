@@ -13,5 +13,11 @@
 		"mri": "^1.2.0",
 		"puppeteer-core": "^24.29.1",
 		"turndown": "^7.2.2"
+	},
+	"scripts": {
+		"test:playwright": "playwright test"
+	},
+	"devDependencies": {
+		"@playwright/test": "^1.56.1"
 	}
 }
