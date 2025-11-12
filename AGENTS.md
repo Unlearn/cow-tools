@@ -3,6 +3,7 @@
 Lightweight Brave automation helpers built on the Chrome DevTools Protocol. Every script except `tools/ddg-search.js` requires Brave running on `http://localhost:9222` with remote debugging enabled.
 
 ## Requirements & Install
+
 - macOS with Brave at `/Applications/Brave Browser.app`.
 - Node.js 18+ (ES modules + built-in `fetch`). `.nvmrc` pins the required Node major version (currently `24`) when using nvm.
 - Initial setup (**human-only, never agents**): run `./setup.sh` once to install dependencies (`puppeteer-core`, `cheerio`, `turndown`), refresh `lib/Readability.js`, and create `.bin/node` which pins the correct Node binary. If the shim is missing/outdated, pause and ask a human to rerun the script.
@@ -18,20 +19,11 @@ Lightweight Brave automation helpers built on the Chrome DevTools Protocol. Ever
 node tools/start.js [--profile] [--reset]
 ```
 
-- Default: `node tools/start.js` runs Brave headless in incognito mode using the
-  automation profile directory so nothing from previous runs leaks forward.
-- `--profile` opens a visible session backed by the persistent automation
-  profile under `./.cache/automation-profile`. Use this for UI workflows such as
-  `pick.js`.
-- `--reset` wipes that automation profile before launch (only meaningful with
-  `--profile`) so you can log in from scratch.
-- The helper terminates only prior automation instances using this profile,
-  launches a fresh one on :9222, and waits until DevTools responds. Keep the
-  automation browser running while using other tools, and run
-  `node tools/stop.js` when you’re done.
-- Environment overrides: set `BROWSER_TOOLS_WINDOW_SIZE` (default `2560,1440`)
-  or `BROWSER_TOOLS_USER_AGENT` (defaults to a modern macOS Chrome UA) when you
-  need alternate viewports/agents.
+- Default: `node tools/start.js` runs Brave headless in incognito mode using the automation profile directory so nothing from previous runs leaks forward.
+- `--profile` opens a visible session backed by the persistent automation profile under `./.cache/automation-profile`. Use this for UI workflows such as `pick.js`.
+- `--reset` wipes that automation profile before launch (only meaningful with `--profile`) so you can log in from scratch.
+- The helper terminates only prior automation instances using this profile, launches a fresh one on :9222, and waits until DevTools responds. Keep the automation browser running while using other tools, and run `node tools/stop.js` when you’re done.
+- Environment overrides: set `BROWSER_TOOLS_WINDOW_SIZE` (default `2560,1440`) or `BROWSER_TOOLS_USER_AGENT` (defaults to a modern macOS Chrome UA) when you need alternate viewports/agents.
 
 ## Navigate
 
@@ -40,8 +32,7 @@ node tools/nav.js https://example.com
 node tools/nav.js https://example.com --new
 ```
 
-Navigate the current tab; `--new` opens a separate tab. Errors if no tab is
-available.
+Navigate the current tab; `--new` opens a separate tab. Errors if no tab is available.
 
 ## Evaluate JavaScript
 
@@ -58,9 +49,7 @@ Run arbitrary async-friendly JavaScript in the active tab to inspect DOM state o
 node tools/screenshot.js [--selector "#main"] [--viewport]
 ```
 
-Captures a PNG in the system temp directory (full page by default) and prints the
-path. Use `--selector` to capture only a specific element or `--viewport` to limit the
-shot to what’s currently visible.
+Captures a PNG in the system temp directory (full page by default) and prints the path. Use `--selector` to capture only a specific element or `--viewport` to limit the shot to what’s currently visible.
 
 ## Pick Elements
 
@@ -68,12 +57,7 @@ shot to what’s currently visible.
 node tools/pick.js "Click the submit button"
 ```
 
-Interactive overlay for collecting element metadata. Cmd/Ctrl+click adds to the
-selection, Enter confirms, Esc cancels. Returns tag/id/class/text/html snippets
-for each pick. Requires a visible browser session (`node tools/start.js --profile`).
-Highlights stay visible until you click elsewhere or press Enter/Esc so you can
-confirm the selection without racing a timeout, and single clicks aren’t committed
-until you press Enter—click another element to replace the pending selection.
+Interactive overlay for collecting element metadata. Cmd/Ctrl+click adds to the selection, Enter confirms, Esc cancels. Returns tag/id/class/text/html snippets for each pick. Requires a visible browser session (`node tools/start.js --profile`). Highlights stay visible until you click elsewhere or press Enter/Esc so you can confirm the selection without racing a timeout, and single clicks aren’t committed until you press Enter—click another element to replace the pending selection without rerunning the command.
 
 ## Cookies
 
@@ -99,10 +83,17 @@ node tools/fetch-readable.js https://example.com > article.md
 
 Loads the page in the active Brave session, injects Mozilla Readability to grab the main article, converts it to Markdown, and streams the content to stdout so you can pipe or redirect it. Ideal for logged-in or JS-heavy pages where curl/readability isn’t enough.
 
-**Note:** Prefer piping directly (e.g. `node tools/fetch-readable.js … | rg keyword`). Only redirect to a file when necessary, and if you do, use a temporary path (e.g. `tmpfile="$(mktemp /tmp/readable.XXXXXX)"` then `node … > "${tmpfile}.md"`), so nothing lingers in the repo.
-**Policy:** Avoid `curl`/`wget` for article content—spin up Brave with `node tools/start.js` and use `fetch-readable.js` (or `nav.js` + `screenshot.js`) so the output is normalized to Markdown. Reserve raw HTTP fetches for lightweight API calls or status checks and call out the reason if you must use them.
+**Note:** Prefer piping directly (e.g. `node tools/fetch-readable.js … | rg keyword`). Only redirect to a file when necessary, and if you do, use a temporary path (e.g. `tmpfile="$(mktemp /tmp/readable.XXXXXX)"` then `node … > "${tmpfile}.md"`), so nothing lingers in the repo. **Policy:** Avoid `curl`/`wget` for article content—spin up Brave with `node tools/start.js` and use `fetch-readable.js` (or `nav.js` + `screenshot.js`) so the output is normalized to Markdown. Reserve raw HTTP fetches for lightweight API calls or status checks and call out the reason if you must use them.
 
 When you capture screenshots, share them by running `open /path/to/file.png` so the user sees the image immediately. The screenshot tool returns a temp-file path—opening it is expected unless told otherwise.
+
+## Login Helper
+
+```bash
+node tools/login-helper.js [--url https://example.com/login] [--message "Log into Foo"] [--timeout 300]
+```
+
+Displays a dedicated overlay (separate from the automation banner) in the visible Brave session so a human can log in. The prompt stays active across navigations and popup-based flows until the user clicks “I'm logged in” (exit code `0`), “Skip” (exit code `2`), or the timeout elapses (exit code `3`). Use this anytime the agent needs credentials before continuing a workflow. **Must be run with `node tools/start.js --profile`** so the login persists across sessions; this is the only supported way for agents to access protected areas tied to user accounts.
 
 ## Stop Automation Browser
 
@@ -110,13 +101,11 @@ When you capture screenshots, share them by running `open /path/to/file.png` so 
 node tools/stop.js
 ```
 
-Terminates any Brave processes launched via `tools/start.js` for the current
-cache directory (`./.cache/automation-profile` or `BROWSER_TOOLS_CACHE`). Run this when
-the browsing task is complete so subsequent sessions start cleanly and no
-windows are left open.
+Terminates any Brave processes launched via `tools/start.js` for the current cache directory (`./.cache/automation-profile` or `BROWSER_TOOLS_CACHE`). Run this when the browsing task is complete so subsequent sessions start cleanly and no windows are left open.
 
 ---
 
 Troubleshooting:
+
 - `✗ No active tab found` → make sure Brave was started via `tools/start.js` and at least one tab is open.
 - Changing ports or browsers → update `browserURL` in each script.

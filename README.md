@@ -134,6 +134,18 @@ Posts a query to DuckDuckGo's HTML endpoint and returns structured search
 results (title, URL, snippet, position) as JSON. Does **not** require Brave to
 be running.
 
+### `login-helper.js`
+```
+node tools/login-helper.js [--url https://example.com/login] [--message "Log into Foo"] [--timeout 300]
+```
+Shows a persistent overlay in the visible automation session asking a human to
+complete a login. The agent waits until the user clicks “I’m logged in” (success,
+exit code `0`), “Skip” (decline, exit code `2`), or the prompt times out (`--timeout`
+in seconds, exit code `3`). Re-displays automatically if the page navigates during
+the flow so you can click through multi-step or popup-driven authentication. **Requires
+`node tools/start.js --profile`** so the authenticated session can be reused when
+continuing deeper into protected areas.
+
 ### `fetch-readable.js`
 ```
 node tools/fetch-readable.js https://example.com > article.md

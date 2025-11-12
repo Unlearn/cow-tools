@@ -8,6 +8,7 @@
         const state = {
             banner: null,
             highlight: null,
+            loginPrompt: null,
         };
 
         const createBanner = () => {
@@ -249,6 +250,113 @@
 
         createBanner();
 
+        const defaultLoginMessage = "Please log in so the agent can continue.";
+
+        const updateLoginState = (nextState) => {
+            window.__loginPromptState = {
+                ...(window.__loginPromptState ?? {}),
+                ...nextState,
+            };
+            window.dispatchEvent(
+                new CustomEvent("automation-login-state", { detail: window.__loginPromptState }),
+            );
+        };
+
+        const destroyLoginPrompt = (token, { clearState = true } = {}) => {
+            if (token && state.loginPrompt?.token && state.loginPrompt.token !== token) {
+                return false;
+            }
+            state.loginPrompt?.panel?.remove();
+            state.loginPrompt = null;
+            if (clearState && window.__loginPromptState) {
+                updateLoginState({ status: "dismissed", dismissedAt: Date.now() });
+            }
+            return true;
+        };
+
+        const showLoginPrompt = (options = {}) => {
+            const token =
+                options.token ||
+                `${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 8)}`;
+            const message = options.message || defaultLoginMessage;
+
+            destroyLoginPrompt();
+
+            const panel = document.createElement("div");
+            panel.id = "login-helper-panel";
+            panel.style.cssText = [
+                "position:fixed",
+                "top:20px",
+                "right:20px",
+                "max-width:320px",
+                "background:#0f172a",
+                "color:#f8fafc",
+                "font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif",
+                "padding:16px",
+                "border-radius:10px",
+                "box-shadow:0 10px 25px rgba(15,23,42,0.35)",
+                "z-index:2147483646",
+                "display:flex",
+                "flex-direction:column",
+                "gap:12px",
+            ].join(";");
+
+            const title = document.createElement("div");
+            title.textContent = "Agent needs your help";
+            title.style.cssText = "font-size:15px;font-weight:600;";
+
+            const body = document.createElement("div");
+            body.textContent = message;
+            body.style.cssText = "font-size:14px;line-height:1.4;";
+
+            const buttons = document.createElement("div");
+            buttons.style.cssText = "display:flex;gap:8px;";
+
+            const confirmBtn = document.createElement("button");
+            confirmBtn.textContent = "I'm logged in";
+            confirmBtn.dataset.loginAction = "confirm";
+            confirmBtn.style.cssText =
+                "flex:1;padding:8px 10px;border-radius:8px;border:none;background:#10b981;color:#fff;font-weight:600;cursor:pointer;";
+
+            const declineBtn = document.createElement("button");
+            declineBtn.textContent = "Skip";
+            declineBtn.dataset.loginAction = "decline";
+            declineBtn.style.cssText =
+                "padding:8px 10px;border-radius:8px;border:1px solid #475569;background:transparent;color:#e2e8f0;cursor:pointer;";
+
+            confirmBtn.addEventListener("click", () => {
+                destroyLoginPrompt(token, { clearState: false });
+                updateLoginState({
+                    token,
+                    status: "confirmed",
+                    respondedAt: Date.now(),
+                });
+            });
+
+            declineBtn.addEventListener("click", () => {
+                destroyLoginPrompt(token, { clearState: false });
+                updateLoginState({
+                    token,
+                    status: "declined",
+                    respondedAt: Date.now(),
+                });
+            });
+
+            buttons.append(confirmBtn, declineBtn);
+            panel.append(title, body, buttons);
+            document.body.appendChild(panel);
+
+            state.loginPrompt = { panel, token };
+            updateLoginState({
+                token,
+                status: "pending",
+                message,
+                createdAt: Date.now(),
+            });
+
+            return { token };
+        };
+
         const automationAPI = {
             highlight: (selector, options = {}) => highlightElement(selector, options.color),
             hideHighlight,
@@ -267,6 +375,8 @@
                 if (state.banner) state.banner.style.display = "";
             },
             startPicker,
+            showLoginPrompt: (options) => showLoginPrompt(options),
+            dismissLoginPrompt: (options = {}) => destroyLoginPrompt(options.token),
         };
 
         window.automation = automationAPI;

@@ -1,0 +1,23 @@
+<!doctype html>
+<html>
+  <body>
+    <main>
+      <h1>Fixture Login</h1>
+      <button id="login-button">Sign in</button>
+      <button id="popup-login">Sign in via popup</button>
+      <script>
+        document.getElementById('login-button').addEventListener('click', () => {
+          window.location.href = '/app';
+        });
+
+        document.getElementById('popup-login').addEventListener('click', () => {
+          const popup = window.open('/popup', 'login-popup', 'width=400,height=300');
+          setTimeout(() => {
+            popup?.close();
+            window.location.href = '/app';
+          }, 500);
+        });
+      </script>
+    </main>
+  </body>
+</html>
