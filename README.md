@@ -187,4 +187,4 @@ Use this flow to exercise every CLI tool end-to-end (humans only). Run it from t
 
 ## Development Workflow & Tests
 - Every tool has an accompanying Playwright test in `tests/`. When adding a new CLI or changing an existing one, **write or update the Playwright test first** to capture the desired behavior, then implement the script so it satisfies that test.
-- Run `npx playwright test` (or `npm run test:playwright`) to execute the suite. The harness covers headless tools, visible automation helpers, DuckDuckGo fetching, and lifecycle scripts, so regressions surface quickly.
+- Run `./test.sh` for the one-step setup + Playwright test runner (it installs npm deps if needed), or invoke `npx playwright test` / `npm run test:playwright` directly when dependencies are already in place. The harness covers headless tools, visible automation helpers, DuckDuckGo fetching, and lifecycle scripts, so regressions surface quickly.
