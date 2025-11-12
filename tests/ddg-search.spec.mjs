@@ -24,3 +24,16 @@ test("ddg-search.js parses DuckDuckGo results", async () => {
 
     await server.close();
 });
+
+test("ddg-search.js surfaces HTTP errors", async () => {
+    const server = await withFixtureServer((req, res) => {
+        res.writeHead(500, { "Content-Type": "text/plain" });
+        res.end("nope");
+    });
+
+    await expect(
+        runTool("ddg-search.js", ["failure"], { env: { DDG_BASE_URL: server.baseUrl } }),
+    ).rejects.toThrow(/status 500/);
+
+    await server.close();
+});

@@ -184,3 +184,7 @@ Use this flow to exercise every CLI tool end-to-end (humans only). Run it from t
   local `node_modules` can be resolved.
 - If any script reports `✗ No active tab found`, ensure Brave is running via
   `tools/start.js` and at least one tab is open.
+
+## Development Workflow & Tests
+- Every tool has an accompanying Playwright test in `tests/`. When adding a new CLI or changing an existing one, **write or update the Playwright test first** to capture the desired behavior, then implement the script so it satisfies that test.
+- Run `npx playwright test` (or `npm run test:playwright`) to execute the suite. The harness covers headless tools, visible automation helpers, DuckDuckGo fetching, and lifecycle scripts, so regressions surface quickly.

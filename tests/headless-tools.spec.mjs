@@ -8,6 +8,8 @@ import {
     serveStaticHtml,
 } from "./helpers.mjs";
 
+const stripAnsi = (value) => value.replace(/\u001b\[[0-9;]*m/g, "");
+
 test.describe.serial("headless browser tools", () => {
     test.beforeAll(async () => {
         await startAutomation();
@@ -22,10 +24,23 @@ test.describe.serial("headless browser tools", () => {
         const { browser, page } = await getLastPage();
         await expect(page).toHaveURL(/example\.com/);
         await expect(page).toHaveTitle("Example Domain");
+
+        await runTool("nav.js", ["https://example.org", "--new"]);
+        const pages = await page.context().pages();
+        expect(pages.length).toBeGreaterThanOrEqual(2);
         await browser.close();
 
-        const { stdout } = await runTool("eval.js", ["document.title"]);
-        expect(stdout.trim()).toBe("Example Domain");
+        const { stdout: title } = await runTool("eval.js", ["document.title"]);
+        expect(title.trim()).toBe("Example Domain");
+
+        const { stdout: objectResult } = await runTool("eval.js", [
+            "({links: Array.from(document.links).length, title: document.title})",
+        ]);
+        expect(objectResult).toContain("links:");
+        expect(objectResult).toContain("title: Example Domain");
+
+        const { stdout: asyncResult } = await runTool("eval.js", ["await Promise.resolve('async-ok')"]);
+        expect(asyncResult.trim()).toBe("async-ok");
     });
 
     test("cookies.js reports cookies set via eval.js", async () => {
@@ -38,10 +53,16 @@ test.describe.serial("headless browser tools", () => {
 
     test("screenshot.js captures the page and fetch-readable.js returns markdown", async () => {
         await runTool("nav.js", ["https://example.com"]);
-        const screenshot = await runTool("screenshot.js");
-        const screenshotPath = screenshot.stdout.trim();
-        const stats = await fs.stat(screenshotPath);
-        expect(stats.size).toBeGreaterThan(10_000);
+        let screenshot = await runTool("screenshot.js", ["--viewport"]);
+        let screenshotPath = screenshot.stdout.trim();
+        let stats = await fs.stat(screenshotPath);
+        expect(stats.size).toBeGreaterThan(8_000);
+        await fs.unlink(screenshotPath);
+
+        screenshot = await runTool("screenshot.js", ["--selector", "h1"]);
+        screenshotPath = screenshot.stdout.trim();
+        stats = await fs.stat(screenshotPath);
+        expect(stats.size).toBeGreaterThan(1_000);
         await fs.unlink(screenshotPath);
 
         const articleHtml = `
@@ -62,5 +83,17 @@ test.describe.serial("headless browser tools", () => {
         expect(markdown).toContain("test article");
 
         await server.close();
+    });
+
+    test("automation helper fallback injects in headless mode", async () => {
+        await runTool("nav.js", ["https://example.com"]);
+        const before = await runTool("eval.js", ["Boolean(window.__automationReady)"]);
+        expect(stripAnsi(before.stdout).trim()).toBe("false");
+
+        const elementShot = await runTool("screenshot.js", ["--selector", "h1"]);
+        await fs.unlink(elementShot.stdout.trim());
+
+        const after = await runTool("eval.js", ["Boolean(window.__automationReady)"]);
+        expect(stripAnsi(after.stdout).trim()).toBe("true");
     });
 });

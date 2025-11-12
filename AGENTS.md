@@ -4,7 +4,7 @@ Lightweight Brave automation helpers built on the Chrome DevTools Protocol. Ever
 
 ## Requirements & Install
 - macOS with Brave at `/Applications/Brave Browser.app`.
-- Node.js 18+ (ES modules + built-in `fetch`). `.nvmrc` pins 20.11.1 when using nvm.
+- Node.js 18+ (ES modules + built-in `fetch`). `.nvmrc` pins the required Node major version (currently `24`) when using nvm.
 - Initial setup (**human-only, never agents**): run `./setup.sh` once to install dependencies (`puppeteer-core`, `cheerio`, `turndown`), refresh `lib/Readability.js`, and create `.bin/node` which pins the correct Node binary. If the shim is missing/outdated, pause and ask a human to rerun the script.
 - Shell usage assumes BSD/macOS userland: prefer BSD-friendly flags (`sed`, `awk`, etc.) and remember `mktemp` templates must end with `XXXXXX` (for example, `mktemp /tmp/readable.XXXXXX`).
 - Agent sessions: after running `setup.sh`, execute commands via `node tools/<script>.js` (or `node tools/<script>.js --help`). The generated `.bin/node` wrapper automatically sets `BROWSER_TOOLS`, prepends `.bin`/`tools` to `PATH`, and execs the pinned Node binary, so no manual `export`/`cd` gymnastics are required.

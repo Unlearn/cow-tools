@@ -46,7 +46,7 @@ export async function startAutomation(options = {}) {
     const args = [];
     if (options.profile) args.push("--profile");
     if (options.reset) args.push("--reset");
-    return runTool("start.js", args, { timeout: 90_000 });
+    return runTool("start.js", args, { timeout: 90_000, env: options.env });
 }
 
 export async function stopAutomation() {
@@ -178,4 +178,13 @@ export function parseKeyValueBlocks(output) {
 
     flush();
     return entries;
+}
+
+export async function withHeadlessAutomation(callback) {
+    await startAutomation();
+    try {
+        return await callback();
+    } finally {
+        await stopAutomation();
+    }
 }
