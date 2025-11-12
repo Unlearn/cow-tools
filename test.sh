@@ -17,6 +17,9 @@ function main() {
     exit 1
   fi
 
+  export PATH="$ROOT/.bin:$PATH"
+  export BROWSER_TOOLS_ALLOW_ROOT=1
+
   echo "Running Playwright tests…"
   npx playwright test "$@"
 }

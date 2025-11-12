@@ -7,12 +7,13 @@ import puppeteer from "puppeteer-core";
 import TurndownService from "turndown";
 import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
 
-const argv = mri(process.argv.slice(2), { alias: { h: "help" } });
+const argv = mri(process.argv.slice(2), { alias: { h: "help", c: "context" } });
 const showUsage = () => {
-    console.log("Usage: fetch-readable.js <url>");
+    console.log("Usage: fetch-readable.js <url> [--search pattern] [--context N] [--search-flags ie]");
     console.log("\nExamples:");
     console.log("  fetch-readable.js https://example.com > article.md");
-    console.log("  fetch-readable.js https://blog.com | rg 'keyword'");
+    console.log('  fetch-readable.js https://blog.com --search "dessert|Tokyo" --context 1');
+    console.log('  fetch-readable.js https://blog.com --search "fraisier" --context 2 --search-flags i');
 };
 
 if (argv.help) {
@@ -21,8 +22,10 @@ if (argv.help) {
 }
 
 ensureBrowserToolsWorkdir("fetch-readable.js");
-
 const url = argv._[0];
+const searchPattern = argv.search;
+const contextWords = Math.max(0, Number.isFinite(Number(argv.context)) ? Number(argv.context) : 0);
+const userFlags = typeof argv["search-flags"] === "string" ? argv["search-flags"] : "";
 
 if (!url) {
     showUsage();
@@ -58,7 +61,7 @@ const article = await page.evaluate(() => {
     if (!parsed) {
         return null;
     }
-    return { title: parsed.title, content: parsed.content };
+    return { title: parsed.title, content: parsed.content, textContent: parsed.textContent };
 });
 
 if (!article) {
@@ -69,8 +72,74 @@ if (!article) {
 
 const turndown = new TurndownService({ headingStyle: "atx" });
 const markdown = turndown.turndown(article.content ?? "");
+
+let matchesMarkdown = "";
+if (searchPattern) {
+    try {
+        const textSource = (article.textContent ?? markdown).replace(/\s+/g, " ").trim();
+        const displayFlags = userFlags;
+        const regexFlags = userFlags.includes("g") ? userFlags : `${userFlags}g`;
+        const regex = new RegExp(searchPattern, regexFlags || "g");
+        const snippets = [];
+
+        const wordRegex = /\S+/g;
+        const wordBoundaries = [];
+        let wordMatch;
+        while ((wordMatch = wordRegex.exec(textSource)) !== null) {
+            wordBoundaries.push({
+                word: wordMatch[0],
+                start: wordMatch.index,
+                end: wordMatch.index + wordMatch[0].length,
+            });
+        }
+
+        if (!wordBoundaries.length) {
+            throw new Error("No readable text available for searching.");
+        }
+
+        const globalRegex = regex;
+        let match;
+        while ((match = globalRegex.exec(textSource)) !== null) {
+            const matchStart = match.index;
+            const matchEnd = matchStart + match[0].length;
+
+            const startWordIndex = wordBoundaries.findIndex(({ start, end }) => matchStart >= start && matchStart < end);
+            const endWordIndex = wordBoundaries.findIndex(({ start, end }) => matchEnd > start && matchEnd <= end);
+
+            const snippetStart = Math.max(0, (startWordIndex === -1 ? 0 : startWordIndex) - contextWords);
+            const snippetEnd = Math.min(
+                wordBoundaries.length - 1,
+                (endWordIndex === -1 ? wordBoundaries.length - 1 : endWordIndex) + contextWords,
+            );
+            const snippet = wordBoundaries.slice(snippetStart, snippetEnd + 1).map(({ word }) => word).join(" ");
+            snippets.push(snippet.trim());
+
+            if (match[0].length === 0) {
+                globalRegex.lastIndex += 1;
+            }
+        }
+
+        const patternLabel = `/${searchPattern}/${displayFlags}`;
+        if (snippets.length) {
+            matchesMarkdown =
+                `Matches (pattern: ${patternLabel}, context words: ${contextWords}):\n` +
+                snippets.map((snippet) => `- \`${snippet}\``).join("\n") +
+                "\n\n";
+        } else {
+            matchesMarkdown = `Matches (pattern: ${patternLabel}, context words: ${contextWords}):\n- _No matches found_\n\n`;
+        }
+    } catch (err) {
+        console.error(`✗ Failed to process --search pattern: ${err.message}`);
+        await b.disconnect();
+        process.exit(1);
+    }
+}
+
 const finalContent = `# ${article.title}\n\n${markdown}\n`;
 
+if (matchesMarkdown) {
+    process.stdout.write(matchesMarkdown);
+}
 process.stdout.write(finalContent);
 
 await b.disconnect();

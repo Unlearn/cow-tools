@@ -18,6 +18,10 @@ const showUsage = () => {
     console.log("\nOptions:");
     console.log("  --selector, -s  Capture only the element that matches the CSS selector");
     console.log("  --viewport, -v  Limit capture to the visible viewport instead of full page");
+    console.log("\nExamples:");
+    console.log("  screenshot.js                        # full-page capture");
+    console.log("  screenshot.js --viewport             # visible area only");
+    console.log('  screenshot.js --selector "h1.title"  # single element');
 };
 
 if (argv.help) {

@@ -145,11 +145,16 @@ continuing deeper into protected areas.
 ### `fetch-readable.js`
 ```
 node browser-tools/fetch-readable.js https://example.com > article.md
+node browser-tools/fetch-readable.js https://example.com --search "dessert|Tokyo" --context 1
 ```
 Uses the existing Brave session to load a URL, runs Mozilla Readability inside
 the page, converts the article content to Markdown via Turndown, and writes the
 result to stdout for piping or redirection. Perfect for capturing logged-in or
-JS-rendered pages as clean text.
+JS-rendered pages as clean text. The optional `--search` flag accepts a
+JavaScript regular expression (no delimiters; e.g. `"dessert|Tokyo"`) and emits
+matching lines (in Markdown) before the full article. `--context N` controls the
+number of nearby words included on each side of the match (default `0`), and
+`--search-flags` passes additional regex flags (e.g. `i` for case-insensitive).
 
 ### `stop.js`
 ```
@@ -182,7 +187,7 @@ Use this flow to exercise every CLI tool end-to-end (humans only). Run it from t
   - `node browser-tools/eval.js 'window.__automationReady ?? false'` (should be `true`; if not, `start.js` logs a warning and the CLI falls back to inline injection)
    - `node browser-tools/eval.js 'window.automation ? (window.automation.hideBanner(), setTimeout(() => window.automation.showBanner(), 500), "banner toggled") : "automation helper unavailable"'`
    - `node browser-tools/screenshot.js`
-   - `node browser-tools/fetch-readable.js https://example.org > /tmp/article.md` (inspect output)
+   - `node browser-tools/fetch-readable.js https://example.org --search "coffee" --context 1 > /tmp/article.md` (inspect output)
    - Navigate to a site with cookies (or set one manually via `node browser-tools/eval.js '(()=>{document.cookie="foo=bar";return document.cookie;})()'`) and rerun `node browser-tools/cookies.js`
    - `node browser-tools/eval.js 'Array.from(document.links).length'`
    - `node browser-tools/stop.js` (run twice; second call should report no automation processes)

@@ -46,7 +46,7 @@ export function ensureBrowserToolsWorkdir(scriptName = "browser-tools command") 
     }
 
     const cwd = resolve(process.cwd());
-    if (cwd === browserToolsRoot) {
+    if (process.env.BROWSER_TOOLS_ALLOW_ROOT === "1" || cwd === browserToolsRoot) {
         return;
     }
 

@@ -85,6 +85,70 @@ test.describe.serial("headless browser tools", () => {
         await server.close();
     });
 
+    test("fetch-readable.js can search text and emit contextual matches", async () => {
+        const articleHtml = `
+            <html>
+              <body>
+                <main>
+                  <h1>City Rankings 2025</h1>
+                  <p>Paris leads the list, followed by Tokyo and Sydney.</p>
+                  <p>The dessert lineup opens with Fraisier and continues with mille-feuille.</p>
+                  <p>Reservations are mandatory.</p>
+                </main>
+              </body>
+            </html>
+        `;
+        const server = await serveStaticHtml(articleHtml);
+        const url = `${server.baseUrl}/ranking`;
+
+        const { stdout } = await runTool("fetch-readable.js", [
+            url,
+            "--search",
+            "dessert|Tokyo",
+            "--context",
+            "0",
+        ]);
+
+        expect(stdout).toContain("City Rankings 2025");
+        expect(stdout).toContain("Paris leads the list");
+        expect(stdout).toContain("Fraisier");
+        expect(stdout).toContain("Tokyo");
+        expect(stdout).toContain("Matches (pattern: /dessert|Tokyo/, context words: 0):");
+        expect(stdout).toContain("- `Tokyo`");
+        expect(stdout).toContain("- `dessert`");
+
+        await server.close();
+    });
+
+    test("fetch-readable.js supports context padding and literal patterns", async () => {
+        const articleHtml = `
+            <html>
+              <body>
+                <main>
+                  <p>Intro paragraph mentioning chocolate cake.</p>
+                  <p>Middle paragraph describing vanilla custard.</p>
+                  <p>Closing paragraph about coffee service.</p>
+                </main>
+              </body>
+            </html>
+        `;
+        const server = await serveStaticHtml(articleHtml);
+        const url = `${server.baseUrl}/desserts`;
+
+        const { stdout } = await runTool("fetch-readable.js", [
+            url,
+            "--search",
+            "vanilla",
+            "--context",
+            "1",
+        ]);
+
+        expect(stdout).toContain("Matches (pattern: /vanilla/, context words: 1):");
+        expect(stdout).toContain("- `describing vanilla custard.`");
+
+        await server.close();
+    });
+
     test("automation helper fallback injects in headless mode", async () => {
         await runTool("nav.js", ["https://example.com"]);
         const before = await runTool("eval.js", ["Boolean(window.__automationReady)"]);

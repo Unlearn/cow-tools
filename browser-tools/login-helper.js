@@ -15,6 +15,10 @@ const argv = mri(process.argv.slice(2), {
 const showUsage = () => {
     console.log("Usage: login-helper.js [--url <page>] [--message <text>] [--timeout <seconds>]");
     console.log("\nPrompts a human to log into the visible Brave session, then waits for confirmation.");
+    console.log("\nExamples:");
+    console.log("  login-helper.js --url https://example.com/login");
+    console.log('  login-helper.js --message "Log into the dashboard"');
+    console.log("  login-helper.js --url https://example.com/login --message \"Need MFA\" --timeout 600");
 };
 
 if (argv.help) {
