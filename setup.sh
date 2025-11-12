@@ -165,27 +165,29 @@ function main() {
 
   info "Creating local Node.js shim..."
   local SHIM_DIR="$ROOT/.bin"
-  local TOOLNODE_SHIM="$SHIM_DIR/toolnode"
-  if [ "$NODE_BIN" = "$TOOLNODE_SHIM" ]; then
-      fail "Resolved Node binary points to the shim path; remove $TOOLNODE_SHIM and rerun setup."
+  local NODE_SHIM="$SHIM_DIR/node"
+  if [ "$NODE_BIN" = "$NODE_SHIM" ]; then
+      fail "Resolved Node binary points to the shim path; remove $NODE_SHIM and rerun setup."
   fi
 
   if [ -n "$NODE_BIN" ]; then
       mkdir -p "$SHIM_DIR"
-      cat >"$TOOLNODE_SHIM" <<EOF
+      cat >"$NODE_SHIM" <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
 
 ROOT="${ROOT}"
 NODE_BIN="${NODE_BIN}"
+SHIM_DIR="\${ROOT}/.bin"
+export BROWSER_TOOLS_NODE_SHIM="\${SHIM_DIR}/node"
 
 export BROWSER_TOOLS="\${BROWSER_TOOLS:-\${ROOT}}"
 
 case ":\$PATH:" in
-    *:"\${ROOT}/.bin":*)
+    *:"\${SHIM_DIR}":*)
         ;;
     *)
-        PATH="\${ROOT}/.bin:\$PATH"
+        PATH="\${SHIM_DIR}:\$PATH"
         ;;
 esac
 
@@ -200,8 +202,8 @@ esac
 export PATH
 exec "\$NODE_BIN" "\$@"
 EOF
-      chmod +x "$TOOLNODE_SHIM"
-      debug "Node shim created at $TOOLNODE_SHIM pointing to $NODE_BIN"
+      chmod +x "$NODE_SHIM"
+      debug "Node shim created at $NODE_SHIM pointing to $NODE_BIN"
   else
       warn "Unable to locate node binary for shim creation."
   fi
@@ -220,7 +222,7 @@ EOF
   fi
 
   success "Browser tools setup is complete."
-  info "You can now start Brave with: node tools/start.js"
+  info "You can now start Brave with: node browser-tools/start.js"
 }
 
 function _execute() {

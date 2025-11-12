@@ -23,24 +23,20 @@ that pins the discovered Node executable and injects the correct environment.
 **Agents must not run `setup.sh`; if the shim is missing or outdated, ask a
 human to rerun the script.**
 
-For Codex CLI sessions, simply set `workdir` to this directory when invoking
-`shell` commands and run `node tools/<script>.js …`. The wrapper automatically
-sets `BROWSER_TOOLS` and prepends `.bin`/`tools` to `PATH`, so no manual `export`
-or `cd` gymnastics are needed. Each CLI script enforces this by checking the
-current working directory. If you forget to set `workdir` to
-`/Users/user/Projects/cow-tools/browser-tools`, the helpers now auto-switch into
-that directory (emitting a warning outside CI) so scripts keep running. Set the
-workdir explicitly to avoid the warning and guarantee predictable relative
-paths.
+For Codex CLI sessions, every `shell` call is a fresh process. Set
+`PATH="/Users/user/Projects/cow-tools/.bin:$PATH"` so the `.bin/node` shim is used,
+and set `workdir="/Users/user/Projects/cow-tools/browser-tools"` before running
+`node <script>.js …`. Commands launched from other directories now fail fast, so
+fix the `workdir` instead of chaining `cd` inside the command string.
 
 ## Starting Brave for CDP Access
-All CLI tools live under `tools/`. Everything except `ddg-search.js` needs Brave
+All CLI tools live under `browser-tools/`. Everything except `ddg-search.js` needs Brave
 running with `--remote-debugging-port=9222` and access to the automation
 profile stored under `./.cache/automation-profile` (override with
 `BROWSER_TOOLS_CACHE` if you need a custom path). Use the helper:
 
 ```bash
-node tools/start.js [--profile] [--reset]
+node browser-tools/start.js [--profile] [--reset]
 ```
 
 - Without flags it launches Brave headless **in incognito mode** using the
@@ -61,8 +57,8 @@ You can manually confirm connectivity via `curl http://localhost:9222/json/versi
 
 ## Available Commands
 
-All commands live in `tools/` and use ES modules; invoke them with `node` (e.g.
-`node tools/nav.js`) or mark them executable (`./tools/nav.js`).
+All commands live in `browser-tools/` and use ES modules; invoke them with `node`
+(e.g. `node browser-tools/nav.js`) or mark them executable (`./browser-tools/nav.js`).
 
 Tip: every script supports `--help` for a quick reminder of syntax and
 examples.
@@ -70,7 +66,7 @@ examples.
 ### Automation Helper
 Visible sessions load a lightweight helper extension that exposes utilities via
 `window.automation`. You can call these helpers from any script using
-`automationCall(page, command, payload)` (see `tools/lib/automation.js`).
+`automationCall(page, command, payload)` (see `browser-tools/lib/automation.js`).
 
 Available commands:
 - `highlight(selector, { color })` / `hideHighlight()`
@@ -81,31 +77,31 @@ Available commands:
 - `startPicker(message)` (used internally by `pick.js`)
 
 The helper fires an `automation-ready` event once it loads. The bridge in
-`tools/lib/automation.js` waits for that event automatically and, if the helper
+`browser-tools/lib/automation.js` waits for that event automatically and, if the helper
 extension fails to load (for example, in headless mode), it injects the same
 logic directly so downstream tools keep working.
 
 ### `nav.js`
 ```
-node tools/nav.js <url> [--new]
+node browser-tools/nav.js <url> [--new]
 ```
 Navigate the current tab (or open a new one with `--new`). Errors out if no
 tab is available.
 
 ### `eval.js`
 ```
-node tools/eval.js 'document.title'
+node browser-tools/eval.js 'document.title'
 ```
 Evaluates arbitrary JavaScript inside the active tab and prints the returned
 value/objects.
 
 ### `pick.js`
 ```
-node tools/pick.js 'Select the login button'
+node browser-tools/pick.js 'Select the login button'
 ```
 Injects a visual picker overlay to capture element metadata. Supports multi-
 select via Cmd/Ctrl+click, `Enter` to finish, `Esc` to cancel. Requires a visible
-browser session (`node tools/start.js --profile`). The highlight now stays on the
+browser session (`node browser-tools/start.js --profile`). The highlight now stays on the
 selection until you click elsewhere or press Enter/Esc, so you can visually
 confirm what was chosen. Single clicks aren’t committed until you press Enter,
 so you can click a different element to replace the pending selection without
@@ -113,13 +109,13 @@ rerunning the command.
 
 ### `cookies.js`
 ```
-node tools/cookies.js
+node browser-tools/cookies.js
 ```
 Prints cookies for the active tab (name, domain, path, flags).
 
 ### `screenshot.js`
 ```
-node tools/screenshot.js [--selector "#main"] [--viewport]
+node browser-tools/screenshot.js [--selector "#main"] [--viewport]
 ```
 Captures the current tab to a PNG in the system temp dir (full-page by default)
 and echoes the path. Pass `--selector` to capture a specific element only, or
@@ -128,7 +124,7 @@ temporarily hidden so images stay clean.
 
 ### `ddg-search.js`
 ```
-node tools/ddg-search.js "best macos automation" [--limit 5]
+node browser-tools/ddg-search.js "best macos automation" [--limit 5]
 ```
 Posts a query to DuckDuckGo's HTML endpoint and returns structured search
 results (title, URL, snippet, position) as JSON. Does **not** require Brave to
@@ -136,19 +132,19 @@ be running.
 
 ### `login-helper.js`
 ```
-node tools/login-helper.js [--url https://example.com/login] [--message "Log into Foo"] [--timeout 300]
+node browser-tools/login-helper.js [--url https://example.com/login] [--message "Log into Foo"] [--timeout 300]
 ```
 Shows a persistent overlay in the visible automation session asking a human to
 complete a login. The agent waits until the user clicks “I’m logged in” (success,
 exit code `0`), “Skip” (decline, exit code `2`), or the prompt times out (`--timeout`
 in seconds, exit code `3`). Re-displays automatically if the page navigates during
 the flow so you can click through multi-step or popup-driven authentication. **Requires
-`node tools/start.js --profile`** so the authenticated session can be reused when
+`node browser-tools/start.js --profile`** so the authenticated session can be reused when
 continuing deeper into protected areas.
 
 ### `fetch-readable.js`
 ```
-node tools/fetch-readable.js https://example.com > article.md
+node browser-tools/fetch-readable.js https://example.com > article.md
 ```
 Uses the existing Brave session to load a URL, runs Mozilla Readability inside
 the page, converts the article content to Markdown via Turndown, and writes the
@@ -157,7 +153,7 @@ JS-rendered pages as clean text.
 
 ### `stop.js`
 ```
-node tools/stop.js
+node browser-tools/stop.js
 ```
 Terminates any automation Brave processes that are using the automation profile
 directory (`./.cache/automation-profile` or its `BROWSER_TOOLS_CACHE` override).
@@ -173,29 +169,29 @@ Use this flow to exercise every CLI tool end-to-end (humans only). Run it from t
    cd /Users/user/Projects/cow-tools
    ```
 2. **Headless session**
-   - `node tools/start.js`
-   - `node tools/nav.js https://example.com`
-   - `node tools/eval.js 'document.title'`
-   - `node tools/nav.js https://news.ycombinator.com` (or any site that sets cookies immediately)
-   - `node tools/cookies.js` (should print at least one cookie)
-   - `node tools/ddg-search.js "automation helpers" --limit 5`
-   - `node tools/stop.js`
+   - `node browser-tools/start.js`
+   - `node browser-tools/nav.js https://example.com`
+   - `node browser-tools/eval.js 'document.title'`
+   - `node browser-tools/nav.js https://news.ycombinator.com` (or any site that sets cookies immediately)
+   - `node browser-tools/cookies.js` (should print at least one cookie)
+   - `node browser-tools/ddg-search.js "automation helpers" --limit 5`
+   - `node browser-tools/stop.js`
 3. **Visible profile session**
-   - `node tools/start.js --profile --reset`
-   - `node tools/nav.js https://example.org --new`
-  - `node tools/eval.js 'window.__automationReady ?? false'` (should be `true`; if not, `start.js` logs a warning and the CLI falls back to inline injection)
-   - `node tools/eval.js 'window.automation ? (window.automation.hideBanner(), setTimeout(() => window.automation.showBanner(), 500), "banner toggled") : "automation helper unavailable"'`
-   - `node tools/screenshot.js`
-   - `node tools/fetch-readable.js https://example.org > /tmp/article.md` (inspect output)
-   - Navigate to a site with cookies (or set one manually via `node tools/eval.js '(()=>{document.cookie="foo=bar";return document.cookie;})()'`) and rerun `node tools/cookies.js`
-   - `node tools/eval.js 'Array.from(document.links).length'`
-   - `node tools/stop.js` (run twice; second call should report no automation processes)
+   - `node browser-tools/start.js --profile --reset`
+   - `node browser-tools/nav.js https://example.org --new`
+  - `node browser-tools/eval.js 'window.__automationReady ?? false'` (should be `true`; if not, `start.js` logs a warning and the CLI falls back to inline injection)
+   - `node browser-tools/eval.js 'window.automation ? (window.automation.hideBanner(), setTimeout(() => window.automation.showBanner(), 500), "banner toggled") : "automation helper unavailable"'`
+   - `node browser-tools/screenshot.js`
+   - `node browser-tools/fetch-readable.js https://example.org > /tmp/article.md` (inspect output)
+   - Navigate to a site with cookies (or set one manually via `node browser-tools/eval.js '(()=>{document.cookie="foo=bar";return document.cookie;})()'`) and rerun `node browser-tools/cookies.js`
+   - `node browser-tools/eval.js 'Array.from(document.links).length'`
+   - `node browser-tools/stop.js` (run twice; second call should report no automation processes)
 
 ## Tips
-- Always run the commands from this directory or add `tools/` to your PATH so the
+- Always run the commands from this directory or add `browser-tools/` to your PATH so the
   local `node_modules` can be resolved.
 - If any script reports `✗ No active tab found`, ensure Brave is running via
-  `tools/start.js` and at least one tab is open.
+  `browser-tools/start.js` and at least one tab is open.
 
 ## Development Workflow & Tests
 - Every tool has an accompanying Playwright test in `tests/`. When adding a new CLI or changing an existing one, **write or update the Playwright test first** to capture the desired behavior, then implement the script so it satisfies that test.
