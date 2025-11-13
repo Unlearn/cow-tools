@@ -97,4 +97,20 @@ test.describe.serial("visible automation helper", () => {
         expect(selections[0].id).toBe("cta-link");
         expect(selections[0].tag).toBe("a");
     });
+
+    test("pick.js cancels selection when Escape is pressed", async () => {
+        const picker = spawnTool("pick.js", ["Select the CTA link"]);
+        const pickerResult = collectProcessOutput(picker);
+        await waitForStreamData(picker.stdout, (out) => out.includes("Picker ready"));
+
+        const { browser, page } = await ensureTestPageReady();
+        await page.bringToFront();
+        await page.waitForTimeout(250);
+        await page.keyboard.press("Escape");
+        await browser.close();
+
+        const { code, stdout } = await pickerResult;
+        expect(code).toBe(0);
+        expect(stdout).toContain("null");
+    });
 });

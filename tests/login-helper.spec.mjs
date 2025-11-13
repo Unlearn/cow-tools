@@ -44,6 +44,31 @@ test.describe.serial("login-helper", () => {
         await server.close();
     });
 
+    test("user skips login flow via overlay controls", async () => {
+        const loginTool = spawnTool("login-helper.js", [
+            "--url",
+            `${server.baseUrl}/login`,
+            "--message",
+            "Log into Fixture",
+        ]);
+        const toolResult = collectProcessOutput(loginTool);
+        await waitForStreamData(loginTool.stdout, (out) => out.includes("Waiting for user login"));
+
+        const { browser, page } = await getLastPage();
+        await waitForAutomationReady(page);
+        await page.waitForSelector(overlaySelector);
+
+        await page.click(`${overlaySelector} button[data-login-action="decline"]`);
+
+        await page.waitForTimeout(200);
+        await expect(page.locator(overlaySelector)).toHaveCount(0);
+
+        const { code, stdout } = await toolResult;
+        await browser.close();
+        expect(code).toBe(2);
+        expect(stdout).toContain("User skipped login");
+    });
+
     test("user logs in successfully after navigation", async () => {
         const loginTool = spawnTool("login-helper.js", ["--url", `${server.baseUrl}/login`, "--message", "Log into Fixture"]);
         const toolResult = collectProcessOutput(loginTool);

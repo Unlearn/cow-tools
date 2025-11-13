@@ -149,6 +149,36 @@ test.describe.serial("headless browser tools", () => {
         await server.close();
     });
 
+    test("fetch-readable.js can find matches inside lists or unstructured blocks", async () => {
+        const articleHtml = `
+            <html>
+              <body>
+                <main>
+                  <ul>
+                    <li>Signature dessert: Mille-feuille with Tahitian vanilla.</li>
+                    <li>Petit fours follow the cheese course.</li>
+                  </ul>
+                </main>
+              </body>
+            </html>
+        `;
+        const server = await serveStaticHtml(articleHtml);
+        const url = `${server.baseUrl}/unstructured`;
+
+        const { stdout } = await runTool("fetch-readable.js", [
+            url,
+            "--search",
+            "Petit",
+            "--context",
+            "0",
+        ]);
+
+        expect(stdout).toContain("Matches (pattern: /Petit/, context words: 0):");
+        expect(stdout).toContain("Petit");
+
+        await server.close();
+    });
+
     test("automation helper fallback injects in headless mode", async () => {
         await runTool("nav.js", ["https://example.com"]);
         const before = await runTool("eval.js", ["Boolean(window.__automationReady)"]);
