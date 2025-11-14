@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import puppeteer from "puppeteer-core";
 import TurndownService from "turndown";
 import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
+import { buildSearchSnippets } from "./lib/search-markdown.js";
 
 const argv = mri(process.argv.slice(2), { alias: { h: "help", c: "context" } });
 const showUsage = () => {
@@ -76,57 +77,20 @@ const markdown = turndown.turndown(article.content ?? "");
 let matchesMarkdown = "";
 if (searchPattern) {
     try {
-        const textSource = (article.textContent ?? markdown).replace(/\s+/g, " ").trim();
-        const displayFlags = userFlags;
-        const regexFlags = userFlags.includes("g") ? userFlags : `${userFlags}g`;
-        const regex = new RegExp(searchPattern, regexFlags || "g");
-        const snippets = [];
-
-        const wordRegex = /\S+/g;
-        const wordBoundaries = [];
-        let wordMatch;
-        while ((wordMatch = wordRegex.exec(textSource)) !== null) {
-            wordBoundaries.push({
-                word: wordMatch[0],
-                start: wordMatch.index,
-                end: wordMatch.index + wordMatch[0].length,
-            });
-        }
-
-        if (!wordBoundaries.length) {
-            throw new Error("No readable text available for searching.");
-        }
-
-        const globalRegex = regex;
-        let match;
-        while ((match = globalRegex.exec(textSource)) !== null) {
-            const matchStart = match.index;
-            const matchEnd = matchStart + match[0].length;
-
-            const startWordIndex = wordBoundaries.findIndex(({ start, end }) => matchStart >= start && matchStart < end);
-            const endWordIndex = wordBoundaries.findIndex(({ start, end }) => matchEnd > start && matchEnd <= end);
-
-            const snippetStart = Math.max(0, (startWordIndex === -1 ? 0 : startWordIndex) - contextWords);
-            const snippetEnd = Math.min(
-                wordBoundaries.length - 1,
-                (endWordIndex === -1 ? wordBoundaries.length - 1 : endWordIndex) + contextWords,
-            );
-            const snippet = wordBoundaries.slice(snippetStart, snippetEnd + 1).map(({ word }) => word).join(" ");
-            snippets.push(snippet.trim());
-
-            if (match[0].length === 0) {
-                globalRegex.lastIndex += 1;
-            }
-        }
-
-        const patternLabel = `/${searchPattern}/${displayFlags}`;
+        const textSource = article.textContent ?? markdown;
+        const { snippets, label } = buildSearchSnippets(textSource, {
+            pattern: searchPattern,
+            flags: userFlags,
+            contextWords,
+        });
         if (snippets.length) {
             matchesMarkdown =
-                `Matches (pattern: ${patternLabel}, context words: ${contextWords}):\n` +
+                `Matches (pattern: ${label}, context words: ${contextWords}):\n` +
                 snippets.map((snippet) => `- \`${snippet}\``).join("\n") +
                 "\n\n";
         } else {
-            matchesMarkdown = `Matches (pattern: ${patternLabel}, context words: ${contextWords}):\n- _No matches found_\n\n`;
+            matchesMarkdown =
+                `Matches (pattern: ${label}, context words: ${contextWords}):\n- _No matches found_\n\n`;
         }
     } catch (err) {
         console.error(`✗ Failed to process --search pattern: ${err.message}`);

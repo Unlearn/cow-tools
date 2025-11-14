@@ -22,7 +22,7 @@ function setup() {
 
   ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-  prerequisites=("node" "npm" "curl" "awk")
+  prerequisites=("node" "npm" "curl" "awk" "pdftotext")
   prerequisites_check
 
   debug_mode=0
@@ -32,6 +32,17 @@ function setup() {
 function prerequisites_check() {
   for prerequisite in "${prerequisites[@]}"; do
     if ! command -v "$prerequisite" &> /dev/null; then
+      if [[ "$prerequisite" == "pdftotext" ]]; then
+        if command -v brew &> /dev/null; then
+          info "Installing poppler via Homebrew to provide pdftotext..."
+          if brew install poppler; then
+            continue
+          fi
+          fail "Failed to install poppler via Homebrew; install pdftotext manually." 70
+        else
+          fail "pdftotext must be installed (Poppler); Homebrew not found, install it manually." 70
+        fi
+      fi
       fail ""\$prerequisite" must be installed." 70
     fi
   done
