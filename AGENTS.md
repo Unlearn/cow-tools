@@ -1,12 +1,12 @@
 # Browser Tools
 
-Lightweight Brave automation helpers built on the Chrome DevTools Protocol. Every script except `tools/ddg-search.js` requires Brave running on `http://localhost:9222` with remote debugging enabled.
+Lightweight Brave automation helpers built on the Chrome DevTools Protocol. All scripts require Brave running on `http://localhost:9222` with remote debugging enabled launched with start.js.
 
 ## Requirements & Install
 
 - macOS with Brave at `/Applications/Brave Browser.app`.
 - Node.js 18+ (ES modules + built-in `fetch`). `.nvmrc` pins the required Node major version (currently `24`) when using nvm.
-- Initial setup (**human-only, never agents**): run `./setup.sh` once to install dependencies (`puppeteer-core`, `cheerio`, `turndown`), refresh `lib/Readability.js`, and create `.bin/node` which pins the correct Node binary. If the shim is missing/outdated, pause and ask a human to rerun the script.
+- Initial setup (**human-only, never agents**): run `./setup.sh` once to install dependencies (`puppeteer-core`, `turndown`), refresh `lib/Readability.js`, and create `.bin/node` which pins the correct Node binary. If the shim is missing/outdated, pause and ask a human to rerun the script.
 - Shell usage assumes BSD/macOS userland: prefer BSD-friendly flags (`sed`, `awk`, etc.) and remember `mktemp` templates must end with `XXXXXX` (for example, `mktemp /tmp/readable.XXXXXX`).
 - Agent sessions: after running `setup.sh`, **always** execute commands through the repo’s Node shim. Either set `PATH="/Users/user/Projects/cow-tools/.bin:$PATH"` (preferred) or call `/Users/user/Projects/cow-tools/.bin/node browser-tools/<script>.js`. Scripts invoked via any other Node binary will exit immediately.
 - Each `shell` call runs in a fresh process. Set `workdir="/Users/user/Projects/cow-tools/browser-tools"` in the CLI before running `node <script>.js`; commands from other directories now fail fast so you fix the workdir instead of relying on auto-`cd`.
@@ -70,10 +70,10 @@ Prints cookie name/value plus domain/path/httpOnly/secure flags for the active t
 ## DuckDuckGo Search
 
 ```bash
-node ddg-search.js "prompt engineering" [--limit 5]
+node ddg-search.js "prompt engineering"
 ```
 
-Queries DuckDuckGo's lightweight HTML endpoint and returns JSON results (title, URL, snippet, position). Useful when you need quick search hits without spinning up the browser.
+Entry point for most web lookups. After Brave is running via `node start.js` or `node start.js --profile`, call `ddg-search.js` to run a DuckDuckGo web search and return structured JSON results (position, title, URL, domain, siteName, date, snippet). Use these results to choose one or more URLs, then hand them off to `nav.js` / `fetch-readable.js` / `screenshot.js` as needed.
 
 ## Fetch Readable Content
 

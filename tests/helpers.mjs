@@ -9,14 +9,15 @@ import { chromium } from "@playwright/test";
 
 const execFileAsync = promisify(execFile);
 const repoRoot = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
+const browserToolsRoot = path.join(repoRoot, "browser-tools");
 
 export const automationEndpoint = "http://localhost:9222";
 
 export async function runTool(script, args = [], options = {}) {
-    const toolPath = path.join(repoRoot, "browser-tools", script);
+    const toolPath = path.join(browserToolsRoot, script);
     const env = { ...process.env, ...(options.env ?? {}) };
     const execOptions = {
-        cwd: repoRoot,
+        cwd: browserToolsRoot,
         env,
         timeout: options.timeout ?? 60_000,
         maxBuffer: options.maxBuffer ?? 10 * 1024 * 1024,
@@ -33,10 +34,10 @@ export async function runTool(script, args = [], options = {}) {
 }
 
 export function spawnTool(script, args = [], options = {}) {
-    const toolPath = path.join(repoRoot, "browser-tools", script);
+    const toolPath = path.join(browserToolsRoot, script);
     const env = { ...process.env, ...(options.env ?? {}) };
     return spawn(process.execPath, [toolPath, ...args], {
-        cwd: repoRoot,
+        cwd: browserToolsRoot,
         env,
         stdio: ["ignore", "pipe", "pipe"],
     });

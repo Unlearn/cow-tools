@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { test, expect } from "@playwright/test";
 import PDFDocument from "pdfkit";
-import { spawnTool, collectProcessOutput, parseKeyValueBlocks } from "./helpers.mjs";
+import { spawnTool, collectProcessOutput, parseKeyValueBlocks, withFixtureServer } from "./helpers.mjs";
 
 async function createMenuPdf() {
     const tmpDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "cow-tools-pdf-"));
@@ -144,5 +144,40 @@ test.describe("pdf2md.js", () => {
         // At least one snippet should include each alternation arm in the pattern.
         expect(stdout).toMatch(/`.*dessert.*`/i);
         expect(stdout).toMatch(/`.*Bonbons.*`/);
+    });
+
+    test("downloads and converts a PDF from a URL", async () => {
+        const pdfPath = await createMenuPdf();
+        const pdfBuffer = await fsPromises.readFile(pdfPath);
+
+        const server = await withFixtureServer((req, res) => {
+            if (req.url === "/menu.pdf") {
+                res.writeHead(200, { "Content-Type": "application/pdf" });
+                res.end(pdfBuffer);
+            } else {
+                res.writeHead(404).end();
+            }
+        });
+
+        const url = `${server.baseUrl}/menu.pdf`;
+        const child = spawnTool("pdf2md.js", [
+            url,
+            "--search",
+            "BANOFFEE",
+            "--context",
+            "0",
+        ]);
+        const { code, stdout, stderr } = await collectProcessOutput(child);
+
+        expect(code).toBe(0);
+        expect(stdout).toContain("BANOFFEE TART");
+        expect(stdout).toContain("Matches (pattern: /BANOFFEE/, context words: 0):");
+
+        const entries = parseKeyValueBlocks(stderr);
+        expect(entries.length).toBeGreaterThanOrEqual(1);
+        expect(entries[0].source).toBe(url);
+        expect(entries[0].contentType).toBe("application/pdf");
+
+        await server.close();
     });
 });

@@ -17,7 +17,7 @@ cd /Users/user/Projects/cow-tools
 ./setup.sh
 ```
 
-`setup.sh` (human-only) installs dependencies (`puppeteer-core`, `cheerio`,
+`setup.sh` (human-only) installs dependencies (`puppeteer-core`,
 `turndown`), refreshes `lib/Readability.js`, and creates `.bin/node`, a wrapper
 that pins the discovered Node executable and injects the correct environment.
 **Agents must not run `setup.sh`; if the shim is missing or outdated, ask a
@@ -124,11 +124,10 @@ temporarily hidden so images stay clean.
 
 ### `ddg-search.js`
 ```
-node browser-tools/ddg-search.js "best macos automation" [--limit 5]
+node browser-tools/ddg-search.js "best macos automation"
 ```
-Posts a query to DuckDuckGo's HTML endpoint and returns structured search
-results (title, URL, snippet, position) as JSON. Does **not** require Brave to
-be running.
+Runs a DuckDuckGo web search in the existing Brave automation session and returns structured
+results (title, URL, snippet, position) as JSON. Requires Brave on `:9222` via `start.js`.
 
 ### `login-helper.js`
 ```
@@ -192,7 +191,7 @@ Use this flow to exercise every CLI tool end-to-end (humans only). Run it from t
    - `node browser-tools/eval.js 'document.title'`
    - `node browser-tools/nav.js https://news.ycombinator.com` (or any site that sets cookies immediately)
    - `node browser-tools/cookies.js` (should print at least one cookie)
-   - `node browser-tools/ddg-search.js "automation helpers" --limit 5`
+   - `node browser-tools/ddg-search.js "automation helpers"`
    - `node browser-tools/stop.js`
 3. **Visible profile session**
    - `node browser-tools/start.js --profile --reset`

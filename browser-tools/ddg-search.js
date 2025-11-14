@@ -1,20 +1,18 @@
 #!/usr/bin/env node
 
 import mri from "mri";
-import * as cheerio from "cheerio";
+import puppeteer from "puppeteer-core";
 import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
-import { getBrowserLikeHeaders } from "./lib/user-agent.js";
 
 const argv = mri(process.argv.slice(2), {
-    alias: { h: "help", l: "limit" },
-    default: { limit: 10 },
+    alias: { h: "help" },
 });
 
 const showUsage = () => {
-    console.log("Usage: ddg-search.js <query> [--limit N]");
+    console.log("Usage: ddg-search.js <query>");
     console.log("\nExamples:");
     console.log('  ddg-search.js "site:example.com login"');
-    console.log('  ddg-search.js "best restaurants" --limit 5');
+    console.log('  ddg-search.js "best restaurants"');
 };
 
 if (argv.help) {
@@ -24,63 +22,205 @@ if (argv.help) {
 
 ensureBrowserToolsWorkdir("ddg-search.js");
 
-const query = argv._.join(" ");
+const query = argv._.join(" ").trim();
 if (!query) {
     showUsage();
     process.exit(1);
 }
 
-let limit = Number(argv.limit) || 10;
-limit = Math.min(Math.max(limit, 1), 25);
+const limit = 10;
+// DuckDuckGo settings derived from the user's custom config.
+// Keep this map as the single source of truth so individual options are easy to understand and tweak.
+const DDG_SETTINGS_PARAMS = {
+    // Appearance / theme
+    kae: "-1", // auto theme: disabled (keep default)
 
-const BASE_URL = process.env.DDG_BASE_URL || "https://html.duckduckgo.com/html";
-const HEADERS = getBrowserLikeHeaders({
-    "Content-Type": "application/x-www-form-urlencoded",
-});
+    // Region / language
+    kad: "en_GB", // UI language + locale (English, Great Britain)
 
-const body = new URLSearchParams({ q: query, kl: "" }).toString();
+    // Safe-search / content filters
+    kz: "-1", // safe search level (custom preset from config)
+    ksn: "5", // number of search results per page
 
-try {
-    const response = await fetch(BASE_URL, {
-        method: "POST",
-        headers: HEADERS,
-        body,
-    });
+    // Behaviour / layout flags (taken directly from exported settings)
+    kbj: "1",
+    kc: "-1",
+    kac: "-1",
+    k1: "-1",
+    kaj: "m",
+    kak: "-1",
+    kax: "-1",
+    kaq: "-1",
+    kao: "-1",
+    kap: "-1",
+    kau: "-1",
+    ko: "-1",
+    kf: "-1",
+    kpsb: "-1",
+    kbg: "-1",
+    kbe: "0",
+};
 
-    if (!response.ok) {
-        throw new Error(`DuckDuckGo responded with status ${response.status}`);
+const DDG_SETTINGS_QUERY = new URLSearchParams(DDG_SETTINGS_PARAMS).toString();
+
+async function runViaBrave(q, max) {
+    let browser;
+    try {
+        browser = await puppeteer.connect({
+            browserURL: "http://localhost:9222",
+            defaultViewport: null,
+        });
+    } catch (err) {
+        throw new Error(
+            `Unable to connect to Brave on http://localhost:9222: ${err?.message || err}. ` +
+                "Start Brave with start.js before running ddg-search.js.",
+        );
     }
 
-    const html = await response.text();
-    const $ = cheerio.load(html);
+    try {
+        const pages = await browser.pages();
+        const page = pages.at(-1) || (await browser.newPage());
 
-    const results = [];
-    $(".result").each((_, element) => {
-        if (results.length >= limit) return false;
+        const url =
+            process.env.DDG_SERP_URL ||
+            `https://duckduckgo.com/?${DDG_SETTINGS_QUERY}&q=${encodeURIComponent(q)}&ia=web`;
+        await page.goto(url, { waitUntil: "domcontentloaded", timeout: 20000 }).catch(() => {});
+        await page
+            .waitForSelector("[data-testid='result']", { timeout: 15000 })
+            .catch(() => {});
 
-        const titleLink = $(element).find(".result__title a").first();
-        if (!titleLink.length) return;
+        const isAnomaly = await page.evaluate(() => {
+            const title = document.querySelector(".anomaly-modal__title");
+            if (title && title.textContent?.includes("Unfortunately, bots use DuckDuckGo too.")) {
+                return true;
+            }
+            return false;
+        });
 
-        let link = titleLink.attr("href") || "";
-        if (link.startsWith("//duckduckgo.com/l/?uddg=")) {
-            const parts = link.split("uddg=")?.[1]?.split("&")?.[0];
-            if (parts) link = decodeURIComponent(parts);
+        if (isAnomaly) {
+            throw new Error(
+                "DuckDuckGo presented a bot challenge on the full site. Try a different network or run this manually in the browser.",
+            );
         }
 
-        if (link.includes("y.js")) return; // skip ads
+        const results = await page.evaluate((maxResults) => {
+            const cards = Array.from(document.querySelectorAll("[data-testid='result']"));
+            const out = [];
 
-        const snippet = $(element).find(".result__snippet").text().trim();
-        results.push({
-            position: results.length + 1,
-            title: titleLink.text().trim(),
-            url: link,
-            snippet,
-        });
-    });
+            for (const card of cards) {
+                if (out.length >= maxResults) break;
 
-    if (results.length === 0) {
+                const titleA = card.querySelector("[data-testid='result-title-a']");
+                if (!(titleA instanceof HTMLAnchorElement)) continue;
+
+                const snippetEl =
+                    card.querySelector("[data-testid='result-snippet']") ||
+                    card.lastElementChild ||
+                    null;
+                const title = titleA.textContent?.trim() || "";
+                const url = titleA.href || "";
+                const pNodes = Array.from(card.querySelectorAll("p"));
+                let domain = "";
+                let siteName = "";
+
+                if (pNodes.length > 0) {
+                    domain = pNodes[0]?.textContent?.trim() || "";
+                }
+                if (pNodes.length > 1) {
+                    const text = pNodes[1]?.textContent?.trim() || "";
+                    if (text && !text.includes("http")) {
+                        siteName = text;
+                    }
+                }
+
+                if (!domain && url) {
+                    try {
+                        const u = new URL(url);
+                        domain = u.hostname.replace(/^www\./, "");
+                    } catch {
+                        /* ignore */
+                    }
+                }
+
+                if (!siteName) {
+                    siteName = domain;
+                }
+
+                let date = "";
+                if (snippetEl) {
+                    const spans = Array.from(snippetEl.querySelectorAll("span"));
+                    for (const span of spans) {
+                        const text = span.textContent?.trim() || "";
+                        if (!text) continue;
+                        const absoluteDate = /^\d{1,2}\s+\w+\s+\d{4}$/;
+                        const relativeDate =
+                            /^\d+\s+(?:seconds?|minutes?|hours?|days?|weeks?|months?|years?)\s+ago$/;
+                        if (absoluteDate.test(text) || relativeDate.test(text)) {
+                            date = text;
+                            break;
+                        }
+                    }
+                }
+
+                let snippet = snippetEl?.textContent?.trim() || "";
+
+                if (!snippet) {
+                    const children = Array.from(card.children);
+                    let best = "";
+                    for (const child of children) {
+                        const text = child.textContent?.trim() || "";
+                        if (!text) continue;
+                        if (
+                            text.includes("Only include results for this site") ||
+                            text.includes("Redo search without this site") ||
+                            text.includes("Share feedback about this site")
+                        ) {
+                            continue;
+                        }
+                        if (/^https?:\/\//.test(text)) continue;
+                        if (text === domain || text === siteName) continue;
+                        if (text.startsWith(domain)) continue;
+                        if (text.length <= best.length) continue;
+                        best = text;
+                    }
+                    snippet = best;
+                }
+
+                if (date && snippet.startsWith(date)) {
+                    snippet = snippet.slice(date.length).trim();
+                }
+
+                if (!title || !url) continue;
+                if (url.includes("duckduckgo.com/y.js")) continue; // skip ads
+
+                out.push({
+                    position: out.length + 1,
+                    title,
+                    url,
+                    domain,
+                    siteName,
+                    date,
+                    snippet,
+                });
+            }
+
+            return out;
+        }, max);
+
+        return results;
+    } finally {
+        await browser.disconnect().catch(() => {});
+    }
+}
+
+try {
+    let results;
+
+    results = await runViaBrave(query, limit);
+
+    if (!results || results.length === 0) {
         console.log("[]");
-        console.error(`\nNo results found for "${query}". DuckDuckGo may be rate limiting.`);
+        console.error(`\nNo results found for "${query}".`);
     } else {
         console.log(JSON.stringify(results, null, 2));
         console.error(`\n\u2713 Found ${results.length} results for "${query}"`);
