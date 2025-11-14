@@ -1,6 +1,9 @@
 # Browser Tools
 
-Lightweight Brave automation helpers built on the Chrome DevTools Protocol. All scripts require Brave running on `http://localhost:9222` with remote debugging enabled launched with start.js.
+Lightweight Brave automation helpers built on the Chrome DevTools Protocol. All scripts require Brave running on `http://localhost:9222` with remote debugging enabled, launched with `start.js`.
+
+These tools are designed to be orchestrated by agents, not by humans directly. This document describes
+how agents should compose them into robust, repeatable workflows.
 
 ## Requirements & Install
 
@@ -12,6 +15,30 @@ Lightweight Brave automation helpers built on the Chrome DevTools Protocol. All 
 - Each `shell` call runs in a fresh process. Set `workdir="/Users/user/Projects/cow-tools/browser-tools"` in the CLI before running `node <script>.js`; commands from other directories now fail fast so you fix the workdir instead of relying on auto-`cd`.
 - Once the correct PATH and workdir are in place, invoke `node start.js`, `node nav.js …`, etc.—the shim handles `BROWSER_TOOLS` and PATH wiring. Avoid embedding `cd`/`export` sequences inside the command string so the harness can track paths correctly.
 - CLI scripts validate both the Node shim and the working directory on startup. If you see the error message about using `/Users/user/Projects/cow-tools/.bin/node` or setting the browser-tools workdir, update the `workdir`/`PATH` in your `shell` call and rerun; chaining `cd` in the command string will not work.
+
+## Search & Source Selection Guidelines
+
+Agents SHOULD:
+
+- Issue one or two well-scoped `ddg-search.js` queries, then filter results with `jq` or similar tools,
+  rather than sending many small variations of the same query.
+- Treat `ddg-search.js` as a structured JSON producer. Always parse and filter the JSON; do not treat
+  the output as plain text.
+- Prefer higher-signal sources when choosing URLs:
+  1. Official domains (the site or organization’s own domain).
+  2. Well-known guides, official documentation, or primary sources.
+  3. Other results only when higher-signal sources are unavailable.
+- Use `domain`, `siteName`, `date`, and `snippet` to avoid thin directories and low-quality pages when
+  better options exist.
+
+When reporting specific facts derived from web content (for example, a particular item, price, or line
+of text), agents MUST ensure at least one tool output includes that exact string (or a close variant) so
+the extraction is auditable. This can come from:
+
+- a `ddg-search.js` snippet,
+- a `fetch-readable.js` match line,
+- a `pdf2md.js` match line,
+- or a targeted `eval.js` result.
 
 ## Start Brave
 
@@ -42,6 +69,26 @@ node eval.js 'document.querySelectorAll("a").length'
 ```
 
 Run arbitrary async-friendly JavaScript in the active tab to inspect DOM state or return structured data.
+
+Agents SHOULD:
+
+- Prefer targeted DOM queries over full `document.body.innerText` dumps. Use selectors and filters to
+  return only the relevant nodes or text.
+- Return structured data where possible (arrays or objects) so later steps can filter and transform the
+  results programmatically.
+
+Examples of targeted patterns:
+
+```bash
+# All links on the page
+node eval.js "[...document.links].map(a => a.href)"
+
+# Links that look like menus
+node eval.js "[...document.links].map(a => a.href).filter(h => /menu/i.test(h))"
+
+# First element whose text contains a distinctive keyword
+node eval.js "[...document.querySelectorAll('body *')].find(el => /keyword/i.test(el.textContent||''))?.textContent"
+```
 
 ## Screenshot
 
@@ -108,6 +155,10 @@ Flow for web tasks:
 2. Pipe to `jq` to select one or more URLs.
 3. Pass those URLs to `nav.js`, `fetch-readable.js`, `pdf2md.js`, or `screenshot.js` depending on the content type.
 
+Agents SHOULD refine their choice of URL via JSON filtering (by `domain`, `siteName`, and `snippet`)
+instead of issuing many similar `ddg-search.js` queries. Use a small number of precise queries and let
+the filters do the work.
+
 ## Fetch Readable Content
 
 ```bash
@@ -118,6 +169,10 @@ node fetch-readable.js https://example.com --search "dessert|Tokyo" --context 1 
 Loads the page in the active Brave session, injects Mozilla Readability to grab the main article, converts it to Markdown, and streams the content to stdout so you can pipe or redirect it. Ideal for logged-in or JS-heavy pages where curl/readability isn’t enough. `--search` accepts a JavaScript regular expression (no delimiters) and prints matching lines (in Markdown) before the full article; `--context N` controls how many nearby words accompany each hit (default `0`), and `--search-flags` passes additional regex flags (e.g. `i` for case-insensitive).
 
 **Note:** Prefer piping directly (e.g. `node fetch-readable.js … | rg keyword`). Only redirect to a file when necessary, and if you do, use a temporary path (e.g. `tmpfile="$(mktemp /tmp/readable.XXXXXX)"` then `node … > "${tmpfile}.md"`), so nothing lingers in the repo. **Policy:** Avoid `curl`/`wget` for article content—spin up Brave with `node start.js` and use `fetch-readable.js` (or `nav.js` + `screenshot.js`) so the output is normalized to Markdown. Reserve raw HTTP fetches for lightweight API calls or status checks and call out the reason if you must use them.
+
+Search patterns SHOULD be semantically meaningful (proper nouns, section titles, key phrases) rather
+than generic patterns like single digits or very common words. When possible, search for headings or
+distinctive phrases that uniquely identify the section or concept you care about.
 
 ## PDF → Markdown
 
@@ -130,6 +185,10 @@ node pdf2md.js https://example.com/menu.pdf [--search pattern] [--context N] [--
 - Agents SHOULD use the built-in `--search` / `--context` / `--search-flags` flags (same semantics as `fetch-readable.js`) as the primary way to locate relevant lines, rather than piping raw output to external grep tools. The tool already emits contextual “Matches (…)” blocks followed by the full Markdown.
 - When the full Markdown is needed, stream it and page it (e.g. `pdf2md.js … | less`) or feed it into downstream text processing; only redirect to a file when necessary, and if you do, use a temp path under `/tmp` as with `fetch-readable.js`.
 - URL inputs are fetched directly via Node `fetch` with a browser-like User-Agent; no Brave session is required for simple PDF URLs, but still prefer `fetch-readable.js` + `nav.js` for HTML/article flows.
+
+When using `--search`, choose patterns that correspond to headings, product names, or other distinctive
+terms instead of generic numbers or very short tokens. This keeps the matches focused and reduces noise
+for downstream steps.
 
 Search-oriented usage examples for agents:
 
