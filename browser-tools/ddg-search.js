@@ -6,27 +6,34 @@ import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
 
 const argv = mri(process.argv.slice(2), {
     alias: { h: "help" },
+    boolean: ["json"],
 });
 
 const showUsage = () => {
-    console.log("Usage: ddg-search.js <query>");
+    console.log("Usage: ddg-search.js [--json] <query>");
     console.log("");
     console.log("Description:");
     console.log(
-        "  Runs a DuckDuckGo web search in the active Brave session and writes a JSON array of results",
+        "  Runs a DuckDuckGo web search in the active Brave session. By default, writes a Markdown",
     );
     console.log(
-        "  to stdout. Each result has: position, title, url, domain, siteName, date, snippet.",
+        "  summary of the top results to stdout (suitable for logs and quick inspection). When --json",
     );
-    console.log("  Agents should pipe this JSON into tools like jq to select URLs for follow-up.");
+    console.log(
+        "  is passed, writes a JSON array of results instead, for structured filtering via tools like jq.",
+    );
+    console.log("  Each result has: position, title, url, domain, siteName, date, snippet.");
     console.log("");
     console.log("Examples:");
-    console.log('  # Top result URL');
-    console.log('  ddg-search.js "site:example.com login" | jq -r ".[0].url"');
+    console.log("  # Human/agent-readable summary (default):");
+    console.log('  ddg-search.js "best restaurants tokyo 2025"');
     console.log("");
-    console.log("  # First result from a specific domain");
+    console.log("  # Structured JSON for filtering:");
+    console.log('  ddg-search.js --json "site:example.com login" | jq -r ".[0].url"');
+    console.log("");
+    console.log("  # First result from a specific domain (JSON mode):");
     console.log(
-        '  ddg-search.js "wa good food guide restaurant of the year 2025" \\',
+        '  ddg-search.js --json "wa good food guide restaurant of the year 2025" \\',
     );
     console.log(
         '    | jq -r \'[.[] | select(.domain | contains("wagoodfoodguide.com"))][0].url\'',
@@ -231,16 +238,46 @@ async function runViaBrave(q, max) {
     }
 }
 
+function formatMarkdownResults(results, q) {
+    const lines = [];
+    lines.push(`# DuckDuckGo results for "${q}"`);
+    lines.push("");
+
+    for (const result of results) {
+        lines.push(`## ${result.position}. ${result.title || "(no title)"}`);
+        lines.push("");
+        lines.push(`- URL: ${result.url}`);
+        if (result.domain) lines.push(`- Domain: ${result.domain}`);
+        if (result.siteName) lines.push(`- Site: ${result.siteName}`);
+        if (result.date) lines.push(`- Date: ${result.date}`);
+        if (result.snippet) {
+            lines.push(`- Snippet: ${result.snippet}`);
+        }
+        lines.push("");
+    }
+
+    return lines.join("\n");
+}
+
 try {
     let results;
 
     results = await runViaBrave(query, limit);
 
     if (!results || results.length === 0) {
-        console.log("[]");
+        if (argv.json) {
+            console.log("[]");
+        } else {
+            console.log(`# DuckDuckGo results for "${query}"`);
+            console.log("");
+            console.log("_No results found._");
+        }
         console.error(`\nNo results found for "${query}".`);
-    } else {
+    } else if (argv.json) {
         console.log(JSON.stringify(results, null, 2));
+        console.error(`\n\u2713 Found ${results.length} results for "${query}"`);
+    } else {
+        console.log(formatMarkdownResults(results, query));
         console.error(`\n\u2713 Found ${results.length} results for "${query}"`);
     }
 } catch (error) {

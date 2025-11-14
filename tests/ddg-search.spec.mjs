@@ -11,7 +11,7 @@ test.describe.serial("ddg-search.js", () => {
                 res.end(fixtureHtml);
             });
 
-            const { stdout } = await runTool("ddg-search.js", ["China"], {
+            const { stdout } = await runTool("ddg-search.js", ["--json", "China"], {
                 env: { DDG_SERP_URL: server.baseUrl },
             });
 
@@ -35,6 +35,52 @@ test.describe.serial("ddg-search.js", () => {
             expect(second.siteName).toBe("Britannica");
             expect(second.date).toBe("4 days ago");
             expect(second.snippet).toContain("China is a country of East Asia.");
+        });
+    });
+
+    test("renders a Markdown summary by default", async () => {
+        const fixtureHtml = await readFile("tests/fixtures/ddg-serp.html");
+
+        await withHeadlessAutomation(async () => {
+            const server = await withFixtureServer((req, res) => {
+                res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+                res.end(fixtureHtml);
+            });
+
+            const { stdout } = await runTool("ddg-search.js", ["China"], {
+                env: { DDG_SERP_URL: server.baseUrl },
+            });
+
+            await server.close();
+
+            const text = stdout.trim();
+
+            expect(text).toContain('# DuckDuckGo results for "China"');
+            expect(text).toContain("## 1. China - Wikipedia");
+            expect(text).toContain("https://en.wikipedia.org/wiki/China");
+            expect(text).toContain("## 2. China | Events, People, Dates, Flag, Map, & Facts | Britannica");
+            expect(text).toContain("https://www.britannica.com/place/China");
+        });
+    });
+
+    test("returns no results for queries with no SERP cards", async () => {
+        const emptyHtml = await readFile("tests/fixtures/ddg-empty.html");
+
+        await withHeadlessAutomation(async () => {
+            const server = await withFixtureServer((req, res) => {
+                res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+                res.end(emptyHtml);
+            });
+
+            const { stdout } = await runTool("ddg-search.js", ["--json", '"this very long string with quotes"'], {
+                env: { DDG_SERP_URL: server.baseUrl },
+            });
+
+            await server.close();
+
+            const results = JSON.parse(stdout);
+            expect(Array.isArray(results)).toBe(true);
+            expect(results).toHaveLength(0);
         });
     });
 

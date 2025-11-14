@@ -118,9 +118,12 @@ Prints cookie name/value plus domain/path/httpOnly/secure flags for the active t
 
 ```bash
 node ddg-search.js "prompt engineering"
+node ddg-search.js --json "prompt engineering"
 ```
 
-Entry point for most web lookups. After Brave is running via `node start.js` or `node start.js --profile`, agents call `ddg-search.js` to run a DuckDuckGo web search and receive a JSON array of results. Each element has the shape:
+Entry point for most web lookups. After Brave is running via `node start.js` or `node start.js --profile`, agents call `ddg-search.js` to run a DuckDuckGo web search. By default it returns a Markdown summary of the top results; when `--json` is passed, it returns a JSON array of results suitable for filtering via `jq` or similar tools.
+
+In JSON mode (`--json`), each element has the shape:
 
 ```json
 {
@@ -134,30 +137,31 @@ Entry point for most web lookups. After Brave is running via `node start.js` or 
 }
 ```
 
-Agents MUST treat this as structured data, not free text. Typical patterns:
+When using `--json`, agents MUST treat the output as structured data, not free text. Typical patterns:
 
 ```bash
 # Take the top result URL
-ddg-search.js "gibney cottesloe dinner menu" \
+ddg-search.js --json "gibney cottesloe dinner menu" \
   | jq -r '.[0].url'
 
 # First result from a specific domain
-ddg-search.js "restaurant of the year 2025 perth" \
+ddg-search.js --json "restaurant of the year 2025 perth" \
   | jq -r '[.[] | select(.domain | contains("wagoodfoodguide.com"))][0].url'
 
 # Ranked listing for downstream scoring
-ddg-search.js "best restaurants perth 2025" \
+ddg-search.js --json "best restaurants perth 2025" \
   | jq -r '.[] | "\(.position). [\(.date)] \(.title) — \(.domain)"'
 ```
 
 Flow for web tasks:
-1. `ddg-search.js "query"` → JSON list of candidate pages.
-2. Pipe to `jq` to select one or more URLs.
-3. Pass those URLs to `nav.js`, `fetch-readable.js`, `pdf2md.js`, or `screenshot.js` depending on the content type.
+1. `ddg-search.js "query"` → Markdown summary for quick inspection/logging.
+2. `ddg-search.js --json "query"` → JSON list of candidate pages for structured processing.
+3. Pipe the JSON to `jq` to select one or more URLs.
+4. Pass those URLs to `nav.js`, `fetch-readable.js`, `pdf2md.js`, or `screenshot.js` depending on the content type.
 
 Agents SHOULD refine their choice of URL via JSON filtering (by `domain`, `siteName`, and `snippet`)
-instead of issuing many similar `ddg-search.js` queries. Use a small number of precise queries and let
-the filters do the work.
+in `--json` mode instead of issuing many similar `ddg-search.js` queries. Use a small number of precise
+queries and let the filters do the work.
 
 ## Fetch Readable Content
 
