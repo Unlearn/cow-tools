@@ -3,6 +3,7 @@
 import mri from "mri";
 import * as cheerio from "cheerio";
 import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
+import { getBrowserLikeHeaders } from "./lib/user-agent.js";
 
 const argv = mri(process.argv.slice(2), {
     alias: { h: "help", l: "limit" },
@@ -33,10 +34,9 @@ let limit = Number(argv.limit) || 10;
 limit = Math.min(Math.max(limit, 1), 25);
 
 const BASE_URL = process.env.DDG_BASE_URL || "https://html.duckduckgo.com/html";
-const HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+const HEADERS = getBrowserLikeHeaders({
     "Content-Type": "application/x-www-form-urlencoded",
-};
+});
 
 const body = new URLSearchParams({ q: query, kl: "" }).toString();
 

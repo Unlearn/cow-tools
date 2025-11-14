@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import puppeteer from "puppeteer-core";
 import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
+import { getUserAgent } from "./lib/user-agent.js";
 
 const usage = () => {
     console.log("Usage: start.js [--profile] [--reset]");
@@ -39,9 +40,7 @@ if (argv._.length > 0) {
 const useProfile = Boolean(argv.profile);
 const resetProfile = Boolean(argv.reset);
 const windowSize = process.env.BROWSER_TOOLS_WINDOW_SIZE ?? "2560,1440";
-const userAgent =
-    process.env.BROWSER_TOOLS_USER_AGENT ??
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+const userAgent = getUserAgent();
 
 if (resetProfile && !useProfile) {
     console.warn("⚠ Ignoring --reset because no persistent profile is in use");
