@@ -156,6 +156,19 @@ matching lines (in Markdown) before the full article. `--context N` controls the
 number of nearby words included on each side of the match (default `0`), and
 `--search-flags` passes additional regex flags (e.g. `i` for case-insensitive).
 
+### `pdf2md.js`
+```
+node browser-tools/pdf2md.js /path/to/menu.pdf
+node browser-tools/pdf2md.js https://example.com/menu.pdf --search "dessert|Tokyo" --context 1
+```
+Converts menu-style PDFs to Markdown using `pdftotext` under the hood, then
+streams the result to stdout. Accepts either a local file path or a direct PDF
+URL (fetched via Node's `fetch` with a browser-like User-Agent). When `--search`
+is provided, it reuses the same JavaScript regex semantics as
+`fetch-readable.js` (`--search`, `--context`, `--search-flags`) and prints a
+summary "Matches (pattern: …)" block ahead of the full Markdown so callers can
+quickly extract the first dessert, price line, etc.
+
 ### `stop.js`
 ```
 node browser-tools/stop.js

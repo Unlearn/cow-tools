@@ -86,6 +86,18 @@ Loads the page in the active Brave session, injects Mozilla Readability to grab 
 
 **Note:** Prefer piping directly (e.g. `node fetch-readable.js … | rg keyword`). Only redirect to a file when necessary, and if you do, use a temporary path (e.g. `tmpfile="$(mktemp /tmp/readable.XXXXXX)"` then `node … > "${tmpfile}.md"`), so nothing lingers in the repo. **Policy:** Avoid `curl`/`wget` for article content—spin up Brave with `node start.js` and use `fetch-readable.js` (or `nav.js` + `screenshot.js`) so the output is normalized to Markdown. Reserve raw HTTP fetches for lightweight API calls or status checks and call out the reason if you must use them.
 
+## PDF → Markdown
+
+```bash
+node pdf2md.js /path/to/menu.pdf [--search pattern] [--context N] [--search-flags ie]
+node pdf2md.js https://example.com/menu.pdf [--search pattern] [--context N] [--search-flags ie]
+```
+
+- Use `pdf2md.js` for menu-style PDFs only; it shells out to `pdftotext` (Poppler) and streams Markdown to stdout.
+- Prefer the built-in `--search` / `--context` / `--search-flags` flags (same semantics as `fetch-readable.js`) instead of piping to `rg`—the tool already emits contextual “Matches (…)” blocks followed by the full Markdown.
+- When you need the full output, stream it and page it (e.g. `node pdf2md.js … | less`); only redirect to a file when necessary, and if you do, use a temp path under `/tmp` as with `fetch-readable.js`.
+- URL inputs are fetched directly via Node `fetch` with a browser-like User-Agent; no Brave session is required for simple PDF URLs, but still prefer `fetch-readable.js` + `nav.js` for HTML/article flows.
+
 When you capture screenshots, share them by running `open /path/to/file.png` so the user sees the image immediately. The screenshot tool returns a temp-file path—opening it is expected unless told otherwise.
 
 ## Login Helper
