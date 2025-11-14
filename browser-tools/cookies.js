@@ -7,7 +7,12 @@ import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
 const argv = mri(process.argv.slice(2), { alias: { h: "help" } });
 const showUsage = () => {
     console.log("Usage: cookies.js");
-    console.log("\nDump cookies from the active Brave automation tab. Requires Brave started via tools/start.js.");
+    console.log("");
+    console.log("Description:");
+    console.log(
+        "  Dumps cookies from the active Brave automation tab (name, domain, path, httpOnly, secure).",
+    );
+    console.log("  Useful for agents that need to confirm login state or capture session metadata.");
 };
 
 if (argv.help) {

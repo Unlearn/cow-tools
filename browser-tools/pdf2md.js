@@ -15,15 +15,32 @@ const execFileAsync = promisify(execFile);
 const argv = mri(process.argv.slice(2), { alias: { h: "help", c: "context" } });
 
 const showUsage = () => {
-    console.log("Usage: pdf2md.js <pdf-path-or-url> [--search pattern] [--context N] [--search-flags ie]");
-    console.log("\nExamples:");
+    console.log(
+        "Usage: pdf2md.js <pdf-path-or-url> [--search pattern] [--context N] [--search-flags ie]",
+    );
+    console.log("");
+    console.log("Description:");
+    console.log(
+        "  Converts a PDF to Markdown and writes it to stdout. When --search is provided,",
+    );
+    console.log(
+        "  emits a contextual \"Matches (pattern: …)\" block first so agents can locate sections/items",
+    );
+    console.log(
+        "  (for example, the first dish under a specific heading) without scanning the whole file.",
+    );
+    console.log("");
+    console.log("Examples:");
     console.log("  # Stream a local PDF as Markdown (no search):");
     console.log("  pdf2md.js /path/to/menu.pdf");
-    console.log("\n  # Convert and search a local PDF using built-in JS regex:");
-    console.log('  pdf2md.js /path/to/menu.pdf --search \"dessert|Tokyo\" --context 1');
-    console.log("\n  # Convert and search a PDF from a URL:");
-    console.log('  pdf2md.js https://example.com/menu.pdf --search \"Banoffee\" --context 0');
-    console.log('  pdf2md.js https://example.com/menu.pdf --search \"fraisier\" --context 2 --search-flags i');
+    console.log("");
+    console.log("  # Find desserts in a local menu:");
+    console.log('  pdf2md.js /path/to/menu.pdf --search "Desserts" --context 4');
+    console.log("");
+    console.log("  # Find a specific item (case-insensitive) in a remote menu:");
+    console.log(
+        '  pdf2md.js https://example.com/menu.pdf --search "fraisier" --context 2 --search-flags i',
+    );
 };
 
 if (argv.help) {

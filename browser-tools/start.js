@@ -11,10 +11,20 @@ import { getUserAgent } from "./lib/user-agent.js";
 
 const usage = () => {
     console.log("Usage: start.js [--profile] [--reset]");
-    console.log("\nOptions:");
+    console.log("");
+    console.log("Description:");
+    console.log(
+        "  Launches Brave with the automation profile and DevTools protocol exposed on :9222 so other tools",
+    );
+    console.log(
+        "  (nav.js, ddg-search.js, fetch-readable.js, pdf2md.js, etc.) can attach to the browser.",
+    );
+    console.log("");
+    console.log("Options:");
     console.log("  --profile  Launch a visible Brave session using the automation profile cache");
     console.log("  --reset    Wipe the automation profile before launching (visible only)");
-    console.log("\nExamples:");
+    console.log("");
+    console.log("Examples:");
     console.log("  start.js");
     console.log("  start.js --profile");
     console.log("  start.js --profile --reset");

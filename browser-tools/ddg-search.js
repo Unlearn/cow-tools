@@ -10,9 +10,27 @@ const argv = mri(process.argv.slice(2), {
 
 const showUsage = () => {
     console.log("Usage: ddg-search.js <query>");
-    console.log("\nExamples:");
-    console.log('  ddg-search.js "site:example.com login"');
-    console.log('  ddg-search.js "best restaurants"');
+    console.log("");
+    console.log("Description:");
+    console.log(
+        "  Runs a DuckDuckGo web search in the active Brave session and writes a JSON array of results",
+    );
+    console.log(
+        "  to stdout. Each result has: position, title, url, domain, siteName, date, snippet.",
+    );
+    console.log("  Agents should pipe this JSON into tools like jq to select URLs for follow-up.");
+    console.log("");
+    console.log("Examples:");
+    console.log('  # Top result URL');
+    console.log('  ddg-search.js "site:example.com login" | jq -r ".[0].url"');
+    console.log("");
+    console.log("  # First result from a specific domain");
+    console.log(
+        '  ddg-search.js "wa good food guide restaurant of the year 2025" \\',
+    );
+    console.log(
+        '    | jq -r \'[.[] | select(.domain | contains("wagoodfoodguide.com"))][0].url\'',
+    );
 };
 
 if (argv.help) {

@@ -73,7 +73,40 @@ Prints cookie name/value plus domain/path/httpOnly/secure flags for the active t
 node ddg-search.js "prompt engineering"
 ```
 
-Entry point for most web lookups. After Brave is running via `node start.js` or `node start.js --profile`, call `ddg-search.js` to run a DuckDuckGo web search and return structured JSON results (position, title, URL, domain, siteName, date, snippet). Use these results to choose one or more URLs, then hand them off to `nav.js` / `fetch-readable.js` / `screenshot.js` as needed.
+Entry point for most web lookups. After Brave is running via `node start.js` or `node start.js --profile`, agents call `ddg-search.js` to run a DuckDuckGo web search and receive a JSON array of results. Each element has the shape:
+
+```json
+{
+  "position": 1,
+  "title": "Example Title",
+  "url": "https://example.com/path",
+  "domain": "example.com",
+  "siteName": "Example",
+  "date": "4 days ago",
+  "snippet": "Result summary text without the date prefix…"
+}
+```
+
+Agents MUST treat this as structured data, not free text. Typical patterns:
+
+```bash
+# Take the top result URL
+ddg-search.js "gibney cottesloe dinner menu" \
+  | jq -r '.[0].url'
+
+# First result from a specific domain
+ddg-search.js "restaurant of the year 2025 perth" \
+  | jq -r '[.[] | select(.domain | contains("wagoodfoodguide.com"))][0].url'
+
+# Ranked listing for downstream scoring
+ddg-search.js "best restaurants perth 2025" \
+  | jq -r '.[] | "\(.position). [\(.date)] \(.title) — \(.domain)"'
+```
+
+Flow for web tasks:
+1. `ddg-search.js "query"` → JSON list of candidate pages.
+2. Pipe to `jq` to select one or more URLs.
+3. Pass those URLs to `nav.js`, `fetch-readable.js`, `pdf2md.js`, or `screenshot.js` depending on the content type.
 
 ## Fetch Readable Content
 
@@ -93,10 +126,30 @@ node pdf2md.js /path/to/menu.pdf [--search pattern] [--context N] [--search-flag
 node pdf2md.js https://example.com/menu.pdf [--search pattern] [--context N] [--search-flags ie]
 ```
 
-- Use `pdf2md.js` for menu-style PDFs only; it shells out to `pdftotext` (Poppler) and streams Markdown to stdout.
-- Prefer the built-in `--search` / `--context` / `--search-flags` flags (same semantics as `fetch-readable.js`) instead of piping to `rg`—the tool already emits contextual “Matches (…)” blocks followed by the full Markdown.
-- When you need the full output, stream it and page it (e.g. `node pdf2md.js … | less`); only redirect to a file when necessary, and if you do, use a temp path under `/tmp` as with `fetch-readable.js`.
+- Use `pdf2md.js` to convert PDFs to Markdown; it shells out to `pdftotext` (Poppler) and streams Markdown to stdout for further processing by the agent. It is especially useful for menu-style PDFs, but can be applied to other document types as well.
+- Agents SHOULD use the built-in `--search` / `--context` / `--search-flags` flags (same semantics as `fetch-readable.js`) as the primary way to locate relevant lines, rather than piping raw output to external grep tools. The tool already emits contextual “Matches (…)” blocks followed by the full Markdown.
+- When the full Markdown is needed, stream it and page it (e.g. `pdf2md.js … | less`) or feed it into downstream text processing; only redirect to a file when necessary, and if you do, use a temp path under `/tmp` as with `fetch-readable.js`.
 - URL inputs are fetched directly via Node `fetch` with a browser-like User-Agent; no Brave session is required for simple PDF URLs, but still prefer `fetch-readable.js` + `nav.js` for HTML/article flows.
+
+Search-oriented usage examples for agents:
+
+```bash
+# Locate a section heading (e.g. "Seafood Bar") and show nearby items
+pdf2md.js https://gibneycottesloe.com/s/DiningMenu \
+  --search "Seafood Bar" \
+  --context 4
+
+# Find all occurrences of "oyster" (case-insensitive) with minimal padding
+pdf2md.js /path/to/menu.pdf \
+  --search "oyster" \
+  --search-flags i \
+  --context 1
+```
+
+Pattern: “first item in a menu section”
+1. Use `ddg-search.js` + `jq` to discover the menu PDF URL.
+2. Call `pdf2md.js <url> --search "<section name>" --context N` to emit the section and its items.
+3. From the emitted Markdown, take the first non-empty line following the section heading as the “first item” to report back.
 
 When you capture screenshots, share them by running `open /path/to/file.png` so the user sees the image immediately. The screenshot tool returns a temp-file path—opening it is expected unless told otherwise.
 

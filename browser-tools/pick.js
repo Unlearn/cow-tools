@@ -7,7 +7,17 @@ import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
 const argv = mri(process.argv.slice(2), { alias: { h: "help" } });
 const showUsage = () => {
     console.log("Usage: pick.js 'instruction'");
-    console.log("\nExample:");
+    console.log("");
+    console.log("Description:");
+    console.log(
+        "  Displays an overlay in the visible Brave session so a human can click one or more elements.",
+    );
+    console.log(
+        "  Returns metadata for the selected elements (tag, id, class, text, html) to stdout so agents",
+    );
+    console.log("  can reuse the selection in later steps.");
+    console.log("");
+    console.log("Example:");
     console.log('  pick.js "Select the login button"');
 };
 

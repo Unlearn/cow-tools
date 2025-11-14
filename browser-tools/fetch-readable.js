@@ -10,11 +10,26 @@ import { buildSearchSnippets } from "./lib/search-markdown.js";
 
 const argv = mri(process.argv.slice(2), { alias: { h: "help", c: "context" } });
 const showUsage = () => {
-    console.log("Usage: fetch-readable.js <url> [--search pattern] [--context N] [--search-flags ie]");
-    console.log("\nExamples:");
+    console.log(
+        "Usage: fetch-readable.js <url> [--search pattern] [--context N] [--search-flags ie]",
+    );
+    console.log("");
+    console.log("Description:");
+    console.log(
+        "  Loads <url> in the active Brave session, runs Mozilla Readability, converts the main article",
+    );
+    console.log(
+        "  to Markdown, and writes it to stdout. With --search, emits a contextual \"Matches (pattern: …)\"",
+    );
+    console.log(
+        "  block first so agents can quickly locate key phrases before consuming the full article.",
+    );
+    console.log("");
+    console.log("Examples:");
     console.log("  fetch-readable.js https://example.com > article.md");
-    console.log('  fetch-readable.js https://blog.com --search "dessert|Tokyo" --context 1');
-    console.log('  fetch-readable.js https://blog.com --search "fraisier" --context 2 --search-flags i');
+    console.log(
+        '  fetch-readable.js https://blog.com --search "dessert|Tokyo" --context 1 --search-flags i',
+    );
 };
 
 if (argv.help) {

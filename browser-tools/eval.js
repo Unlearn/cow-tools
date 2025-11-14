@@ -7,9 +7,22 @@ import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
 const argv = mri(process.argv.slice(2), { alias: { h: "help" } });
 const showUsage = () => {
     console.log("Usage: eval.js 'code'");
-    console.log("\nExamples:");
+    console.log("");
+    console.log("Description:");
+    console.log(
+        "  Evaluates arbitrary JavaScript in the active Brave automation tab and prints the result.",
+    );
+    console.log(
+        "  Useful for quick DOM inspections (e.g., counting links, extracting specific attributes,",
+    );
+    console.log("  or probing page state before calling other tools).");
+    console.log("");
+    console.log("Examples:");
     console.log('  eval.js "document.title"');
     console.log('  eval.js "document.querySelectorAll(\'a\').length"');
+    console.log(
+        '  eval.js "[...document.links].map(a => a.href).filter(h => h.includes(\'menu\'))"',
+    );
 };
 
 if (argv.help) {

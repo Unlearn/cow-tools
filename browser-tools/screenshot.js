@@ -14,11 +14,20 @@ const argv = mri(process.argv.slice(2), {
 });
 const showUsage = () => {
     console.log("Usage: screenshot.js [--selector <css>] [--viewport]");
-    console.log("\nCaptures the current Brave automation tab to a PNG in the system temp directory and prints the file path.");
-    console.log("\nOptions:");
+    console.log("");
+    console.log("Description:");
+    console.log(
+        "  Captures the current Brave automation tab to a PNG in the system temp directory and prints the file path.",
+    );
+    console.log(
+        "  Agents can pass this path to external viewers or attach it to logs when visual confirmation is needed.",
+    );
+    console.log("");
+    console.log("Options:");
     console.log("  --selector, -s  Capture only the element that matches the CSS selector");
     console.log("  --viewport, -v  Limit capture to the visible viewport instead of full page");
-    console.log("\nExamples:");
+    console.log("");
+    console.log("Examples:");
     console.log("  screenshot.js                        # full-page capture");
     console.log("  screenshot.js --viewport             # visible area only");
     console.log('  screenshot.js --selector "h1.title"  # single element');

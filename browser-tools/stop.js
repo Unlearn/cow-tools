@@ -8,7 +8,12 @@ import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
 
 if (process.argv.includes("--help")) {
     console.log("Usage: stop.js");
-    console.log("\nCloses tabs and terminates any Brave processes launched via tools/start.js.");
+    console.log("");
+    console.log("Description:");
+    console.log(
+        "  Closes tabs and terminates any Brave processes launched via start.js for the automation profile.",
+    );
+    console.log("  Use this at the end of a run so subsequent automation sessions start clean.");
     process.exit(0);
 }
 
