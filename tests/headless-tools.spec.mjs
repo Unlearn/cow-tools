@@ -120,6 +120,35 @@ test.describe.serial("headless browser tools", () => {
         await server.close();
     });
 
+    test("fetch-readable.js treats currency-like patterns as literals", async () => {
+        const articleHtml = `
+            <html>
+              <body>
+                <main>
+                  <p>Signature cocktail: Ember Highball – S$28</p>
+                  <p>Zero-proof option: Citrus Cooler – S$18</p>
+                </main>
+              </body>
+            </html>
+        `;
+        const server = await serveStaticHtml(articleHtml);
+        const url = `${server.baseUrl}/prices`;
+
+        const { stdout } = await runTool("fetch-readable.js", [
+            url,
+            "--search",
+            "S$",
+            "--context",
+            "0",
+        ]);
+
+        expect(stdout).toContain("Matches (pattern: /S\\$/");
+        expect(stdout).toContain("S$28");
+        expect(stdout).toContain("S$18");
+
+        await server.close();
+    });
+
     test("fetch-readable.js supports context padding and literal patterns", async () => {
         const articleHtml = `
             <html>
