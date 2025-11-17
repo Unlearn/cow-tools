@@ -1,3 +1,17 @@
+/**
+ * @typedef {Object} SearchSnippetsResult
+ * @property {string[]} snippets
+ * @property {string} label
+ * @property {number} contextWords
+ */
+
+/**
+ * Build contextual snippets around regex matches in the given text.
+ *
+ * @param {string} textSource
+ * @param {{ pattern: string, flags?: string, contextWords?: number }} options
+ * @returns {SearchSnippetsResult}
+ */
 export function buildSearchSnippets(textSource, { pattern, flags = "", contextWords = 0 }) {
     if (!pattern) {
         return { snippets: [], label: "", contextWords };
@@ -15,6 +29,7 @@ export function buildSearchSnippets(textSource, { pattern, flags = "", contextWo
     const regex = new RegExp(escapedPattern, effectiveFlags);
 
     const wordRegex = /\S+/g;
+    /** @type {{ word: string, start: number, end: number }[]} */
     const wordBoundaries = [];
     let wordMatch;
     while ((wordMatch = wordRegex.exec(normalized)) !== null) {
@@ -29,6 +44,7 @@ export function buildSearchSnippets(textSource, { pattern, flags = "", contextWo
         throw new Error("No readable text available for searching.");
     }
 
+    /** @type {string[]} */
     const snippets = [];
     const globalRegex = regex;
     let match;
@@ -48,7 +64,10 @@ export function buildSearchSnippets(textSource, { pattern, flags = "", contextWo
             wordBoundaries.length - 1,
             (endWordIndex === -1 ? wordBoundaries.length - 1 : endWordIndex) + contextWords,
         );
-        const snippet = wordBoundaries.slice(snippetStart, snippetEnd + 1).map(({ word }) => word).join(" ");
+        const snippet = wordBoundaries
+            .slice(snippetStart, snippetEnd + 1)
+            .map(({ word }) => word)
+            .join(" ");
         snippets.push(snippet.trim());
 
         if (match[0].length === 0) {

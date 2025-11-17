@@ -4,6 +4,17 @@ import mri from "mri";
 import puppeteer from "puppeteer-core";
 import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
 
+/**
+ * @typedef {Object} DdgResult
+ * @property {number} position
+ * @property {string} title
+ * @property {string} url
+ * @property {string} [domain]
+ * @property {string} [siteName]
+ * @property {string} [date]
+ * @property {string} [snippet]
+ */
+
 const argv = mri(process.argv.slice(2), {
     alias: { h: "help" },
     boolean: ["json"],
@@ -88,6 +99,13 @@ const DDG_SETTINGS_PARAMS = {
 
 const DDG_SETTINGS_QUERY = new URLSearchParams(DDG_SETTINGS_PARAMS).toString();
 
+/**
+ * Run a DuckDuckGo search via Brave and return structured results.
+ *
+ * @param {string} q
+ * @param {number} max
+ * @returns {Promise<DdgResult[]>}
+ */
 async function runViaBrave(q, max) {
     let browser;
     try {
@@ -96,8 +114,9 @@ async function runViaBrave(q, max) {
             defaultViewport: null,
         });
     } catch (err) {
+        const reason = err && typeof err === "object" && "message" in err ? String(err.message) : String(err);
         throw new Error(
-            `Unable to connect to Brave on http://localhost:9222: ${err?.message || err}. ` +
+            `Unable to connect to Brave on http://localhost:9222: ${reason}. ` +
                 "Start Brave with start.js before running ddg-search.js.",
         );
     }
@@ -128,6 +147,7 @@ async function runViaBrave(q, max) {
             );
         }
 
+        /** @type {DdgResult[]} */
         const results = await page.evaluate((maxResults) => {
             const cards = Array.from(document.querySelectorAll("[data-testid='result']"));
             const out = [];
@@ -229,7 +249,7 @@ async function runViaBrave(q, max) {
                 });
             }
 
-            return out;
+            return /** @type {DdgResult[]} */ (out);
         }, max);
 
         return results;
@@ -238,6 +258,13 @@ async function runViaBrave(q, max) {
     }
 }
 
+/**
+ * Format search results as a Markdown summary.
+ *
+ * @param {DdgResult[]} results
+ * @param {string} q
+ * @returns {string}
+ */
 function formatMarkdownResults(results, q) {
     const lines = [];
     lines.push(`# DuckDuckGo results for "${q}"`);
@@ -281,6 +308,7 @@ try {
         console.error(`\n\u2713 Found ${results.length} results for "${query}"`);
     }
 } catch (error) {
-    console.error(`Error querying DuckDuckGo: ${error.message}`);
+    const reason = error && typeof error === "object" && "message" in error ? String(error.message) : String(error);
+    console.error(`Error querying DuckDuckGo: ${reason}`);
     process.exit(1);
 }

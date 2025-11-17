@@ -1,11 +1,21 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
+/**
+ * @typedef {import("puppeteer-core").Page} Page
+ */
+
 const automationScriptPath = fileURLToPath(
     new URL("../../extensions/automation-helper/content.js", import.meta.url),
 );
+/** @type {string | null} */
 let cachedAutomationSource = null;
 
+/**
+ * Load the automation helper source from disk (cached after first read).
+ *
+ * @returns {Promise<string>}
+ */
 async function loadAutomationSource() {
     if (cachedAutomationSource) {
         return cachedAutomationSource;
@@ -14,6 +24,13 @@ async function loadAutomationSource() {
     return cachedAutomationSource;
 }
 
+/**
+ * Check whether the automation helper is ready on the given page.
+ *
+ * @param {Page} page
+ * @param {number} [timeout]
+ * @returns {Promise<boolean>}
+ */
 async function checkAutomation(page, timeout = 2000) {
     return page.evaluate((ms) => {
         if (window.__automationReady) {
@@ -33,6 +50,13 @@ async function checkAutomation(page, timeout = 2000) {
     }, timeout);
 }
 
+/**
+ * Ensure the automation helper is available on the page.
+ *
+ * @param {Page} page
+ * @param {number} [timeout]
+ * @returns {Promise<boolean>}
+ */
 export async function waitForAutomation(page, timeout = 2000) {
     let ready = await checkAutomation(page, timeout);
     if (ready) {
@@ -48,6 +72,15 @@ export async function waitForAutomation(page, timeout = 2000) {
     return ready;
 }
 
+/**
+ * Call an automation helper function exposed via window.automation on the page.
+ *
+ * @template T
+ * @param {Page} page
+ * @param {string} command
+ * @param {unknown[] | unknown} [payload]
+ * @returns {Promise<T | null>}
+ */
 export async function automationCall(page, command, payload = []) {
     const ready = await waitForAutomation(page);
     if (!ready) {
@@ -58,10 +91,17 @@ export async function automationCall(page, command, payload = []) {
             return null;
         }
         const args = Array.isArray(data) ? data : [data];
+        // @ts-ignore - the automation bridge is injected at runtime
         return window.automation[cmd](...args);
     }, command, payload);
 }
 
+/**
+ * Attempt to dismiss common cookie banners on the page.
+ *
+ * @param {Page} page
+ * @returns {Promise<void>}
+ */
 export async function dismissCookieBanners(page) {
     const selectors = [
         "#onetrust-accept-btn-handler",

@@ -64,7 +64,8 @@ if (useProfile && resetProfile) {
         rmSync(profileDir, { recursive: true, force: true });
         console.log("ℹ Reset automation profile");
     } catch (err) {
-        console.warn("Warning: failed to reset automation profile", err?.message ?? err);
+        const reason = err && typeof err === "object" && "message" in err ? String(err.message) : String(err);
+        console.warn("Warning: failed to reset automation profile", reason);
     }
 }
 
@@ -82,13 +83,16 @@ try {
         try {
             process.kill(numericPid, "SIGTERM");
         } catch (err) {
+            // @ts-ignore runtime error objects may have a code property
             if (err?.code !== "ESRCH") {
-                console.warn("Warning: failed to terminate an existing Brave process", err?.message ?? err);
+                const reason = err && typeof err === "object" && "message" in err ? String(err.message) : String(err);
+                console.warn("Warning: failed to terminate an existing Brave process", reason);
             }
         }
     }
 } catch (err) {
-    console.warn("Warning: failed to inspect Brave processes", err?.message ?? err);
+    const reason = err && typeof err === "object" && "message" in err ? String(err.message) : String(err);
+    console.warn("Warning: failed to inspect Brave processes", reason);
 }
 
 await new Promise((r) => setTimeout(r, 1000));
@@ -148,7 +152,8 @@ try {
         ),
     );
 } catch (err) {
-    console.warn("Warning: unable to set user agent on existing pages", err?.message ?? err);
+    const reason = err && typeof err === "object" && "message" in err ? String(err.message) : String(err);
+    console.warn("Warning: unable to set user agent on existing pages", reason);
 }
 
 let automationReady = true;
@@ -178,7 +183,8 @@ if (useProfile) {
         }
     } catch (err) {
         automationReady = false;
-        console.warn("Warning: unable to verify automation helper", err?.message ?? err);
+        const reason = err && typeof err === "object" && "message" in err ? String(err.message) : String(err);
+        console.warn("Warning: unable to verify automation helper", reason);
     }
 }
 

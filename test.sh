@@ -20,6 +20,11 @@ function main() {
   export PATH="$ROOT/.bin:$PATH"
   export BROWSER_TOOLS_ALLOW_ROOT=1
 
+  echo "Running TypeScript type checks (JSDoc, non-blocking)…"
+  if ! npx tsc; then
+    echo "Typecheck reported issues (non-blocking); see output above." >&2
+  fi
+
   echo "Running Playwright tests…"
   npx playwright test "$@"
 }

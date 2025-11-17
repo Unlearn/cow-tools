@@ -40,7 +40,8 @@ try {
         await browser.disconnect();
     }
 } catch (err) {
-    console.warn("Warning: could not connect to Brave to close tabs", err?.message ?? err);
+    const reason = err && typeof err === "object" && "message" in err ? String(err.message) : String(err);
+    console.warn("Warning: could not connect to Brave to close tabs", reason);
 }
 
 if (closedTabs > 0) {
@@ -62,12 +63,14 @@ try {
             killed++;
         } catch (err) {
             if (err?.code !== "ESRCH") {
-                console.warn("Warning: failed to terminate Brave process", err?.message ?? err);
+                const reason = err && typeof err === "object" && "message" in err ? String(err.message) : String(err);
+                console.warn("Warning: failed to terminate Brave process", reason);
             }
         }
     }
 } catch (err) {
-    console.warn("Warning: failed to inspect Brave processes", err?.message ?? err);
+    const reason = err && typeof err === "object" && "message" in err ? String(err.message) : String(err);
+    console.warn("Warning: failed to inspect Brave processes", reason);
 }
 
 if (killed > 0) {
