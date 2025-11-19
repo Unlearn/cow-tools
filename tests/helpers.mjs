@@ -47,16 +47,17 @@ export async function startAutomation(options = {}) {
     const args = [];
     if (options.profile) args.push("--profile");
     if (options.reset) args.push("--reset");
+    if (!options.proxy) args.push("--no-proxy");
     return runTool("start.js", args, { timeout: 90_000, env: options.env });
 }
 
-export async function stopAutomation() {
-    return runTool("stop.js", [], { timeout: 45_000 });
+export async function stopAutomation(options = {}) {
+    return runTool("stop.js", [], { timeout: 45_000, env: options.env });
 }
 
-export async function ensureStopped() {
+export async function ensureStopped(options = {}) {
     try {
-        await stopAutomation();
+        await stopAutomation(options);
     } catch {
         /* ignore */
     }

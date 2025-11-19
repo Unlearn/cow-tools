@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import puppeteer from "puppeteer-core";
 import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
+import { stopSshProxyTunnel } from "./lib/ssh-proxy.js";
 
 if (process.argv.includes("--help")) {
     console.log("Usage: stop.js");
@@ -77,4 +78,9 @@ if (killed > 0) {
     console.log(`✓ Stopped ${killed} automation Brave process${killed === 1 ? "" : "es"}`);
 } else {
     console.log("ℹ No automation Brave processes found for the automation profile directory.");
+}
+
+const stoppedProxy = await stopSshProxyTunnel().catch(() => false);
+if (stoppedProxy) {
+    console.log("✓ Stopped SSH proxy tunnel");
 }

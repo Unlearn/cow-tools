@@ -8,9 +8,10 @@ import { fileURLToPath } from "node:url";
 import puppeteer from "puppeteer-core";
 import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
 import { getUserAgent } from "./lib/user-agent.js";
+import { startSshProxyTunnel, stopSshProxyTunnel } from "./lib/ssh-proxy.js";
 
 const usage = () => {
-    console.log("Usage: start.js [--profile] [--reset]");
+    console.log("Usage: start.js [--profile] [--reset] [--no-proxy]");
     console.log("");
     console.log("Description:");
     console.log(
@@ -21,8 +22,9 @@ const usage = () => {
     );
     console.log("");
     console.log("Options:");
-    console.log("  --profile  Launch a visible Brave session using the automation profile cache");
-    console.log("  --reset    Wipe the automation profile before launching (visible only)");
+    console.log("  --profile   Launch a visible Brave session using the automation profile cache");
+    console.log("  --reset     Wipe the automation profile before launching (visible only)");
+    console.log("  --no-proxy  Skip starting the baked-in SSH SOCKS proxy");
     console.log("");
     console.log("Examples:");
     console.log("  start.js");
@@ -32,7 +34,7 @@ const usage = () => {
 
 const argv = mri(process.argv.slice(2), {
     alias: { h: "help" },
-    boolean: ["profile", "reset"],
+    boolean: ["profile", "reset", "proxy", "no-proxy"],
 });
 
 ensureBrowserToolsWorkdir("start.js");
@@ -49,8 +51,10 @@ if (argv._.length > 0) {
 
 const useProfile = Boolean(argv.profile);
 const resetProfile = Boolean(argv.reset);
+const disableProxy = argv.proxy === false || Boolean(argv["no-proxy"]);
 const windowSize = process.env.BROWSER_TOOLS_WINDOW_SIZE ?? "2560,1440";
 const userAgent = getUserAgent();
+let proxyInfo = null;
 
 if (resetProfile && !useProfile) {
     console.warn("⚠ Ignoring --reset because no persistent profile is in use");
@@ -97,6 +101,17 @@ try {
 
 await new Promise((r) => setTimeout(r, 1000));
 
+if (!disableProxy) {
+    try {
+        proxyInfo = await startSshProxyTunnel();
+        console.log(`✓ SSH proxy ready on ${proxyInfo.host}:${proxyInfo.port}`);
+    } catch (err) {
+        const reason = err && typeof err === "object" && "message" in err ? String(err.message) : String(err);
+        console.error("✗ Failed to initialize SSH proxy", reason);
+        process.exit(1);
+    }
+}
+
 const launchArgs = [
     "--remote-debugging-port=9222",
     `--user-data-dir=${profileDir}`,
@@ -105,6 +120,11 @@ const launchArgs = [
     "--disable-dev-shm-usage",
     `--user-agent=${userAgent}`,
 ];
+
+if (proxyInfo) {
+    const proxyUrl = `socks5://${proxyInfo.host}:${proxyInfo.port}`;
+    launchArgs.push(`--proxy-server=${proxyUrl}`);
+}
 
 if (!useProfile) {
     launchArgs.push("--incognito", "--headless=new", `--window-size=${windowSize}`);
@@ -139,6 +159,9 @@ for (let i = 0; i < maxAttempts; i++) {
 
 if (!browser) {
     console.error("✗ Failed to connect to Brave");
+    if (proxyInfo) {
+        await stopSshProxyTunnel({ silent: true });
+    }
     process.exit(1);
 }
 

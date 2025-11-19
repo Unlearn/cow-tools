@@ -43,6 +43,17 @@ After a human has run `./setup.sh` once **(agents must not invoke this script)**
 Scripts invoked with any other Node binary, or from the wrong working directory, will exit with an
 error and instructions to fix PATH/workdir.
 
+### SSH Proxy Tunnel (Default)
+
+- `start.js` automatically launches the baked-in SSH SOCKS tunnel defined in
+  `browser-tools/lib/ssh-proxy-config.js` (currently `ssh -N -D 127.0.0.1:1080 proxy-exit`
+  with strict keepalive flags). Define the `proxy-exit` host in your personal `~/.ssh/config`
+  so credentials stay outside the repo; update the code only if the alias name changes.
+- The proxy is mandatory unless you pass `--no-proxy`. Use that flag only when a site blocks the
+  tunnel or you explicitly need to expose your local IP for debugging.
+- `stop.js` tears the SSH process down after it closes Brave. Always run it when you are finished so
+  the tunnel does not linger between harness runs.
+
 ### Shell and Process Model
 
 - Each `shell` call runs in a fresh process; no state is preserved between calls.
@@ -147,13 +158,14 @@ variant) so the extraction is auditable. This can come from:
 **Usage:**
 
 ```bash
-node start.js [--profile] [--reset]
+node start.js [--profile] [--reset] [--no-proxy]
 ```
 
 Key options:
 
 - `--profile` – Launch a visible session using the persistent automation profile cache.
 - `--reset` – Wipe the automation profile before launching (only meaningful with `--profile`).
+- `--no-proxy` – Skip the baked-in SSH SOCKS proxy (rare; default is to keep it enabled).
 
 Guidelines:
 
@@ -161,6 +173,8 @@ Guidelines:
   `pdf2md.js`, etc.
 - If you see connection errors from other tools, verify Brave is running via `start.js` and that the
   remote debugging port is still `:9222`.
+- Unless you pass `--no-proxy`, every run goes through the SSH tunnel configured in
+  `browser-tools/lib/ssh-proxy-config.js`. Confirm that file points at the right VPS before launching.
 
 #### `stop.js`
 
@@ -181,6 +195,7 @@ Behavior:
 
 - Attempts to connect to Brave on `:9222` and close all tabs.
 - Terminates any Brave processes launched with the automation profile directory.
+- Stops the SSH SOCKS proxy started by `start.js` (unless you launched with `--no-proxy`).
 
 Guidelines:
 

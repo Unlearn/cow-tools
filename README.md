@@ -34,6 +34,32 @@ cd /Users/user/Projects/cow-tools
 Agents **must not** invoke `setup.sh` directly; if the shim is missing or out of
 date, a human should rerun the script.
 
+## SSH Proxy Tunnel
+
+Every automation session routes through an SSH-based SOCKS proxy by default. The
+command lives in `browser-tools/lib/ssh-proxy-config.js` and is preconfigured to
+run `ssh -N -D 127.0.0.1:1080 proxy-exit` with strict keepalive flags. Define
+that `proxy-exit` alias in your personal `~/.ssh/config` so credentials stay out
+of the repo. A typical stanza looks like:
+
+```ssh-config
+Host proxy-exit
+    HostName ssh.example.com
+    User user
+    Port 4193
+    IdentityFile ~/.ssh/id_proxy
+    ServerAliveInterval 30
+    ServerAliveCountMax 3
+```
+
+`start.js` launches the tunnel first, passes `--proxy-server=socks5://127.0.0.1:1080`
+to Brave, and `stop.js` tears the tunnel down at the end. Use `start.js --no-proxy`
+only when you explicitly need to bypass the proxy; update the code only if you
+rename the alias.
+
+Tests set `BROWSER_TOOLS_SSH_PROXY_TEST_CONFIG` to point at a local stub so they
+can validate proxy handling without dialing the real VPS.
+
 ## Project Layout
 
 - `browser-tools/` – CLI entry points and shared helpers used by agents.
@@ -74,7 +100,8 @@ npx playwright test
 
 Playwright will launch Brave via `browser-tools/start.js` as part of the test
 harness and exercise the tools under both headless and visible automation
-profiles.
+profiles. The harness passes `--no-proxy` to `start.js` so the suite does not
+depend on the real SSH tunnel; proxy behavior is tested separately via stubs.
 
 ## Contributing
 
