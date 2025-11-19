@@ -4,6 +4,7 @@ import mri from "mri";
 import puppeteer from "puppeteer-core";
 import { randomUUID } from "node:crypto";
 import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
+import { startHeartbeatInterval } from "./lib/session-heartbeat.js";
 import { automationCall, waitForAutomation } from "./lib/automation.js";
 
 const argv = mri(process.argv.slice(2), {
@@ -37,6 +38,7 @@ if (argv.help) {
 }
 
 ensureBrowserToolsWorkdir("login-helper.js");
+const stopHeartbeat = startHeartbeatInterval();
 
 const timeoutSeconds = Math.max(5, Number(argv.timeout) || 300);
 const timeoutMs = timeoutSeconds * 1000;
@@ -47,13 +49,18 @@ const browser = await puppeteer.connect({
     browserURL: "http://localhost:9222",
     defaultViewport: null,
 });
+const cleanupAndExit = async (code) => {
+    await browser.disconnect().catch(() => {});
+    stopHeartbeat();
+    process.exit(code);
+};
 
 const pages = await browser.pages();
 const initialPage = pages.at(-1);
 
 if (!initialPage) {
     console.error("✗ No active tab found");
-    process.exit(1);
+    await cleanupAndExit(1);
 }
 
 if (targetUrl) {
@@ -184,21 +191,17 @@ await Promise.all(livePages().map((page) => dismissPromptOnPage(page)));
 
 if (!finalState) {
     console.log(`Login prompt timed out after ${timeoutSeconds}s.`);
-    await browser.disconnect();
-    process.exit(3);
+    await cleanupAndExit(3);
 }
 
 if (finalState.status === "declined") {
     console.log("User skipped login; continuing without authentication.");
-    await browser.disconnect();
-    process.exit(2);
+    await cleanupAndExit(2);
 }
 
 if (finalState.status === "confirmed") {
     console.log("User confirmed login; proceeding.");
-    await browser.disconnect();
-    process.exit(0);
+    await cleanupAndExit(0);
 }
 
-await browser.disconnect();
-process.exit(1);
+await cleanupAndExit(1);

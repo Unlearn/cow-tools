@@ -3,6 +3,7 @@
 import mri from "mri";
 import puppeteer from "puppeteer-core";
 import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
+import { startHeartbeatInterval } from "./lib/session-heartbeat.js";
 import { dismissCookieBanners } from "./lib/automation.js";
 
 const argv = mri(process.argv.slice(2), { alias: { h: "help" }, boolean: ["new"] });
@@ -26,6 +27,7 @@ if (argv.help) {
 }
 
 ensureBrowserToolsWorkdir("nav.js");
+const stopHeartbeat = startHeartbeatInterval();
 
 const url = argv._[0];
 const newTab = Boolean(argv.new);
@@ -35,29 +37,34 @@ if (!url) {
     process.exit(1);
 }
 
-const b = await puppeteer.connect({
-    browserURL: "http://localhost:9222",
-    defaultViewport: null,
-});
+try {
+    const b = await puppeteer.connect({
+        browserURL: "http://localhost:9222",
+        defaultViewport: null,
+    });
 
-if (newTab) {
-    const p = await b.newPage();
-    await p.goto(url, { waitUntil: "domcontentloaded" });
-    await dismissCookieBanners(p).catch(() => {});
-    console.log("✓ Opened:", url);
-} else {
-    const pages = await b.pages();
-    const p = pages.at(-1);
+    if (newTab) {
+        const p = await b.newPage();
+        await p.goto(url, { waitUntil: "domcontentloaded" });
+        await dismissCookieBanners(p).catch(() => {});
+        console.log("✓ Opened:", url);
+    } else {
+        const pages = await b.pages();
+        const p = pages.at(-1);
 
     if (!p) {
         console.error("✗ No active tab found");
         await b.disconnect();
+        stopHeartbeat();
         process.exit(1);
     }
 
-    await p.goto(url, { waitUntil: "domcontentloaded" });
-    await dismissCookieBanners(p).catch(() => {});
-    console.log("✓ Navigated to:", url);
-}
+        await p.goto(url, { waitUntil: "domcontentloaded" });
+        await dismissCookieBanners(p).catch(() => {});
+        console.log("✓ Navigated to:", url);
+    }
 
-await b.disconnect();
+    await b.disconnect();
+} finally {
+    stopHeartbeat();
+}

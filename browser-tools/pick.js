@@ -3,6 +3,7 @@
 import mri from "mri";
 import puppeteer from "puppeteer-core";
 import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
+import { startHeartbeatInterval } from "./lib/session-heartbeat.js";
 
 const argv = mri(process.argv.slice(2), { alias: { h: "help" } });
 const showUsage = () => {
@@ -27,6 +28,7 @@ if (argv.help) {
 }
 
 ensureBrowserToolsWorkdir("pick.js");
+const stopHeartbeat = startHeartbeatInterval();
 
 const message = argv._.join(" ");
 if (!message) {
@@ -38,12 +40,17 @@ const b = await puppeteer.connect({
     browserURL: "http://localhost:9222",
     defaultViewport: null,
 });
+const cleanupAndExit = async (code) => {
+    await b.disconnect().catch(() => {});
+    stopHeartbeat();
+    process.exit(code);
+};
 
 const p = (await b.pages()).at(-1);
 
 if (!p) {
     console.error("✗ No active tab found");
-    process.exit(1);
+    await cleanupAndExit(1);
 }
 
 await p.evaluate(() => {
@@ -204,3 +211,4 @@ if (Array.isArray(result)) {
 }
 
 await b.disconnect();
+stopHeartbeat();

@@ -2,7 +2,8 @@ import { defineConfig } from "@playwright/test";
 
 const isCI = Boolean(process.env.CI);
 const braveExecutable =
-    process.env.BRAVE_EXECUTABLE ?? "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser";
+    process.env.BRAVE_EXECUTABLE ??
+    "/Applications/Brave Browser Nightly.app/Contents/MacOS/Brave Browser Nightly";
 
 export default defineConfig({
     testDir: "./tests",

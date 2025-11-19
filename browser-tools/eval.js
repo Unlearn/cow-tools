@@ -3,6 +3,7 @@
 import mri from "mri";
 import puppeteer from "puppeteer-core";
 import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
+import { startHeartbeatInterval } from "./lib/session-heartbeat.js";
 
 const argv = mri(process.argv.slice(2), { alias: { h: "help" } });
 const showUsage = () => {
@@ -31,6 +32,7 @@ if (argv.help) {
 }
 
 ensureBrowserToolsWorkdir("eval.js");
+const stopHeartbeat = startHeartbeatInterval();
 
 const code = argv._.join(" ");
 if (!code) {
@@ -43,31 +45,39 @@ const b = await puppeteer.connect({
     defaultViewport: null,
 });
 
-const p = (await b.pages()).at(-1);
+try {
+    const p = (await b.pages()).at(-1);
 
-if (!p) {
-    console.error("✗ No active tab found");
-    process.exit(1);
-}
+    if (!p) {
+        console.error("✗ No active tab found");
+        stopHeartbeat();
+        process.exit(1);
+    }
 
-const result = await p.evaluate((c) => {
-    const AsyncFunction = (async () => {}).constructor;
-    return new AsyncFunction(`return (${c})`)();
-}, code);
+    const result = await p.evaluate((c) => {
+        const AsyncFunction = (async () => {}).constructor;
+        return new AsyncFunction(`return (${c})`)();
+    }, code);
 
-if (Array.isArray(result)) {
-    for (let i = 0; i < result.length; i++) {
-        if (i > 0) console.log("");
-        for (const [key, value] of Object.entries(result[i])) {
+    if (Array.isArray(result)) {
+        for (let i = 0; i < result.length; i++) {
+            if (i > 0) console.log("");
+            for (const [key, value] of Object.entries(result[i])) {
+                console.log(`${key}: ${value}`);
+            }
+        }
+    } else if (typeof result === "object" && result !== null) {
+        for (const [key, value] of Object.entries(result)) {
             console.log(`${key}: ${value}`);
         }
+    } else {
+        console.log(result);
     }
-} else if (typeof result === "object" && result !== null) {
-    for (const [key, value] of Object.entries(result)) {
-        console.log(`${key}: ${value}`);
-    }
-} else {
-    console.log(result);
+} catch (error) {
+    console.error("✗ Evaluation failed:", error?.message ?? error);
+    stopHeartbeat();
+    process.exit(1);
+} finally {
+    await b.disconnect();
+    stopHeartbeat();
 }
-
-await b.disconnect();

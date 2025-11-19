@@ -2,13 +2,20 @@
 
 import mri from "mri";
 import { spawn, execSync } from "node:child_process";
-import { mkdirSync, rmSync } from "node:fs";
+import { mkdirSync, rmSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import puppeteer from "puppeteer-core";
 import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
 import { getUserAgent } from "./lib/user-agent.js";
 import { startSshProxyTunnel, stopSshProxyTunnel } from "./lib/ssh-proxy.js";
+import {
+    clearHeartbeatState,
+    initHeartbeatState,
+    readHeartbeatState,
+    setWatchdogPid,
+    touchHeartbeat,
+} from "./lib/session-heartbeat.js";
 
 const usage = () => {
     console.log("Usage: start.js [--profile] [--reset] [--no-proxy]");
@@ -22,9 +29,10 @@ const usage = () => {
     );
     console.log("");
     console.log("Options:");
-    console.log("  --profile   Launch a visible Brave session using the automation profile cache");
-    console.log("  --reset     Wipe the automation profile before launching (visible only)");
-    console.log("  --no-proxy  Skip starting the baked-in SSH SOCKS proxy");
+    console.log("  --profile           Launch a visible Brave session using the automation profile cache");
+    console.log("  --reset             Wipe the automation profile before launching (visible only)");
+    console.log("  --no-proxy          Skip starting the baked-in SSH SOCKS proxy");
+    console.log("  --session-timeout   Minutes before idle sessions auto-shutdown (default 10)");
     console.log("");
     console.log("Examples:");
     console.log("  start.js");
@@ -35,6 +43,7 @@ const usage = () => {
 const argv = mri(process.argv.slice(2), {
     alias: { h: "help" },
     boolean: ["profile", "reset", "proxy", "no-proxy"],
+    string: ["session-timeout"],
 });
 
 ensureBrowserToolsWorkdir("start.js");
@@ -55,13 +64,33 @@ const disableProxy = argv.proxy === false || Boolean(argv["no-proxy"]);
 const windowSize = process.env.BROWSER_TOOLS_WINDOW_SIZE ?? "2560,1440";
 const userAgent = getUserAgent();
 let proxyInfo = null;
+const defaultTimeoutMs = 10 * 60 * 1000;
+const envTimeoutMs = Number(process.env.BROWSER_TOOLS_SESSION_TIMEOUT_MS);
+const envTimeoutMinutes = Number(process.env.BROWSER_TOOLS_SESSION_TIMEOUT_MINUTES);
+let sessionTimeoutMs = Number.isFinite(envTimeoutMs) && envTimeoutMs > 0 ? envTimeoutMs : defaultTimeoutMs;
+if (Number.isFinite(envTimeoutMinutes) && envTimeoutMinutes > 0) {
+    sessionTimeoutMs = envTimeoutMinutes * 60 * 1000;
+}
+if (typeof argv["session-timeout"] === "string" && argv["session-timeout"].length > 0) {
+    const cliMinutes = Number(argv["session-timeout"]);
+    if (!Number.isFinite(cliMinutes) || cliMinutes <= 0) {
+        console.error("✗ --session-timeout must be a positive number of minutes");
+        process.exit(1);
+    }
+    sessionTimeoutMs = cliMinutes * 60 * 1000;
+}
 
 if (resetProfile && !useProfile) {
     console.warn("⚠ Ignoring --reset because no persistent profile is in use");
 }
 
-const toolsRoot = fileURLToPath(new URL("../", import.meta.url));
-const profileDir = join(process.env["BROWSER_TOOLS_CACHE"] ?? toolsRoot, ".cache", "automation-profile");
+const repoRoot = fileURLToPath(new URL("../", import.meta.url));
+const browserToolsRoot = fileURLToPath(new URL("./", import.meta.url));
+const cacheRoot = join(process.env["BROWSER_TOOLS_CACHE"] ?? repoRoot, ".cache");
+const profileDir = join(cacheRoot, "automation-profile");
+const braveNightlyBinary = "/Applications/Brave Browser Nightly.app/Contents/MacOS/Brave Browser Nightly";
+
+mkdirSync(cacheRoot, { recursive: true });
 
 if (useProfile && resetProfile) {
     try {
@@ -74,6 +103,37 @@ if (useProfile && resetProfile) {
 }
 
 mkdirSync(profileDir, { recursive: true });
+
+const existingHeartbeat = readHeartbeatState();
+if (existingHeartbeat?.watcherPid) {
+    try {
+        process.kill(existingHeartbeat.watcherPid, "SIGTERM");
+    } catch {
+        /* ignore */
+    }
+}
+clearHeartbeatState();
+
+let braveBinary = null;
+let braveBinarySource = "automation";
+const envBrave = (process.env.BROWSER_TOOLS_BRAVE_PATH ?? "").trim();
+if (envBrave) {
+    braveBinary = envBrave;
+    braveBinarySource = "env";
+} else {
+    braveBinary = braveNightlyBinary;
+}
+
+if (!existsSync(braveBinary)) {
+    console.error(
+        [
+            "✗ Unable to find the Brave Nightly binary used for automation.",
+            `  Expected path: ${braveBinary}`,
+            "  Install Brave Browser Nightly (or set BROWSER_TOOLS_BRAVE_PATH to an alternate executable) before launching start.js.",
+        ].join("\n"),
+    );
+    process.exit(1);
+}
 
 try {
     const psOutput = execSync("ps -Ao pid=,command=").toString();
@@ -129,7 +189,7 @@ if (proxyInfo) {
 if (!useProfile) {
     launchArgs.push("--incognito", "--headless=new", `--window-size=${windowSize}`);
 } else {
-    const extensionDir = join(toolsRoot, "extensions", "automation-helper");
+    const extensionDir = join(repoRoot, "extensions", "automation-helper");
     launchArgs.push(
         `--disable-extensions-except=${extensionDir}`,
         `--load-extension=${extensionDir}`,
@@ -137,11 +197,13 @@ if (!useProfile) {
     );
 }
 
-spawn(
-    "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
-    launchArgs,
-    { detached: true, stdio: "ignore" },
-).unref();
+if (braveBinarySource === "env") {
+    console.log(`ℹ Using Brave binary from BROWSER_TOOLS_BRAVE_PATH: ${braveBinary}`);
+} else {
+    console.log(`ℹ Using Brave Browser Nightly: ${braveBinary}`);
+}
+
+spawn(braveBinary, launchArgs, { detached: true, stdio: "ignore" }).unref();
 
 let browser = null;
 const maxAttempts = 30;
@@ -213,6 +275,26 @@ if (useProfile) {
 
 await browser.disconnect();
 
+initHeartbeatState(sessionTimeoutMs);
+touchHeartbeat();
+try {
+    const watchdog = spawn(process.execPath, [join(browserToolsRoot, "lib", "session-watchdog.js")], {
+        cwd: browserToolsRoot,
+        env: process.env,
+        detached: true,
+        stdio: "ignore",
+    });
+    setWatchdogPid(watchdog.pid);
+    watchdog.unref();
+} catch (err) {
+    const reason = err && typeof err === "object" && "message" in err ? String(err.message) : String(err);
+    console.warn("Warning: failed to start session watchdog", reason);
+}
+const timeoutLabel =
+    sessionTimeoutMs >= 60_000
+        ? `${Math.round(sessionTimeoutMs / 60_000)} min`
+        : `${Math.max(1, Math.round(sessionTimeoutMs / 1000))} sec`;
+
 if (useProfile) {
     console.log("✓ Brave started on :9222 (visible automation profile)");
     if (!automationReady) {
@@ -223,3 +305,5 @@ if (useProfile) {
 } else {
     console.log("✓ Brave started on :9222 (headless incognito)");
 }
+
+console.log(`ℹ Session watchdog armed (${timeoutLabel} timeout)`);

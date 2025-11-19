@@ -8,8 +8,8 @@ Tool-by-tool usage and agent flows are documented in `AGENTS.md`.
 
 ## Requirements
 
-- macOS with Brave Browser installed at the default path
-  (`/Applications/Brave Browser.app`).
+- macOS with [Brave Browser Nightly](https://brave.com/download-nightly/) installed at the
+  default path (`/Applications/Brave Browser Nightly.app`).
 - Node.js 18+ (needed for native `fetch` and ES modules) and npm.
 - Homebrew (only required if you plan to run the `bin/bootstrap.sh` playbook).
 - `pdftotext` from Poppler available on `PATH` (required for `pdf2md.js` and the
@@ -26,6 +26,9 @@ cd /Users/user/Projects/cow-tools
 
 `setup.sh` will:
 
+- Ensure Brave Browser Nightly is installed, run a one-time manual update via
+  Brave’s updater binary, and disable Brave’s background auto-updater so the
+  automation binary stays pinned.
 - Install npm dependencies (including `puppeteer-core` and `turndown`).
 - Refresh `lib/Readability.js`.
 - Create `.bin/node`, a wrapper that pins the correct Node binary and injects
@@ -56,6 +59,29 @@ Host proxy-exit
 to Brave, and `stop.js` tears the tunnel down at the end. Use `start.js --no-proxy`
 only when you explicitly need to bypass the proxy; update the code only if you
 rename the alias.
+
+## Brave Nightly Binary
+
+Automation runs exclusively against Brave Browser Nightly. `start.js` will launch
+`/Applications/Brave Browser Nightly.app/Contents/MacOS/Brave Browser Nightly`
+unless you override it with `BROWSER_TOOLS_BRAVE_PATH`. The Nightly channel keeps
+Brave’s UI and feature flags aligned with what agents expect while remaining
+isolated from the Stable/Beta installs you might use for personal browsing.
+
+During setup we still allow Nightly to update (via `BraveUpdater --update-apps`)
+so the binary is fresh, but the script removes Brave’s LaunchAgents and cached
+updater bundles afterwards and toggles the Sparkle preferences that enable
+automatic checks. If you want to point at a different Chromium build, export
+`BROWSER_TOOLS_BRAVE_PATH` before invoking `start.js`.
+
+## Session Watchdog
+
+`start.js` also arms a 10-minute watchdog: if no browser-tool command touches the
+session heartbeat within that window, a helper automatically invokes `stop.js` to
+shut Brave and the SSH tunnel down. Every CLI tool updates the heartbeat when it
+starts, so standard workflows keep the session alive. To change the timeout, set
+`BROWSER_TOOLS_SESSION_TIMEOUT_MS`, `BROWSER_TOOLS_SESSION_TIMEOUT_MINUTES`, or
+pass `--session-timeout <minutes>` to `start.js`.
 
 Tests set `BROWSER_TOOLS_SSH_PROXY_TEST_CONFIG` to point at a local stub so they
 can validate proxy handling without dialing the real VPS.

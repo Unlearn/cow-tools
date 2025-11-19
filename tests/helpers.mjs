@@ -10,6 +10,7 @@ import { chromium } from "@playwright/test";
 const execFileAsync = promisify(execFile);
 const repoRoot = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const browserToolsRoot = path.join(repoRoot, "browser-tools");
+const heartbeatPath = path.join(browserToolsRoot, ".cache", "session-heartbeat.json");
 
 export const automationEndpoint = "http://localhost:9222";
 
@@ -48,7 +49,13 @@ export async function startAutomation(options = {}) {
     if (options.profile) args.push("--profile");
     if (options.reset) args.push("--reset");
     if (!options.proxy) args.push("--no-proxy");
-    return runTool("start.js", args, { timeout: 90_000, env: options.env });
+    const baseEnv = {
+        BROWSER_TOOLS_BRAVE_PATH:
+            process.env.BROWSER_TOOLS_BRAVE_PATH ??
+            "/Applications/Brave Browser Nightly.app/Contents/MacOS/Brave Browser Nightly",
+    };
+    const env = { ...baseEnv, ...(options.env ?? {}) };
+    return runTool("start.js", args, { timeout: 90_000, env });
 }
 
 export async function stopAutomation(options = {}) {
@@ -65,6 +72,24 @@ export async function ensureStopped(options = {}) {
 
 export async function connectToBrave() {
     return chromium.connectOverCDP(automationEndpoint);
+}
+
+export async function readHeartbeatFile() {
+    try {
+        const raw = await fs.readFile(heartbeatPath, "utf8");
+        return JSON.parse(raw);
+    } catch {
+        return null;
+    }
+}
+
+export async function heartbeatFileExists() {
+    try {
+        await fs.access(heartbeatPath);
+        return true;
+    } catch {
+        return false;
+    }
 }
 
 export async function getLastPage() {

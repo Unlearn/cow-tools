@@ -6,6 +6,7 @@ import { join } from "node:path";
 import puppeteer from "puppeteer-core";
 import { automationCall } from "./lib/automation.js";
 import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
+import { startHeartbeatInterval } from "./lib/session-heartbeat.js";
 
 const argv = mri(process.argv.slice(2), {
     alias: { h: "help", s: "selector", v: "viewport" },
@@ -39,6 +40,7 @@ if (argv.help) {
 }
 
 ensureBrowserToolsWorkdir("screenshot.js");
+const stopHeartbeat = startHeartbeatInterval();
 
 if (argv._.length > 0) {
     showUsage();
@@ -53,41 +55,48 @@ const b = await puppeteer.connect({
     defaultViewport: null,
 });
 
-const p = (await b.pages()).at(-1);
-
-if (!p) {
-    console.error("✗ No active tab found");
-    process.exit(1);
-}
-
-await automationCall(p, "hideBanner");
-
-const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-const filename = `screenshot-${timestamp}.png`;
-const filepath = join(tmpdir(), filename);
+let p = null;
+let exitCode = 0;
+let filepath = "";
 
 try {
+    p = (await b.pages()).at(-1);
+
+    if (!p) {
+        throw new Error("✗ No active tab found");
+    }
+
+    await automationCall(p, "hideBanner");
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const filename = `screenshot-${timestamp}.png`;
+    filepath = join(tmpdir(), filename);
+
     if (selector) {
         const elementHandle = await p.$(selector);
         if (!elementHandle) {
-            console.error(`✗ No element found for selector: ${selector}`);
-            process.exitCode = 1;
-        } else {
-            await p.$eval(selector, (el) => el.scrollIntoView({ behavior: "instant", block: "center", inline: "center" }));
-            await elementHandle.screenshot({ path: filepath });
+            throw new Error(`✗ No element found for selector: ${selector}`);
         }
+        await p.$eval(selector, (el) =>
+            el.scrollIntoView({ behavior: "instant", block: "center", inline: "center" }),
+        );
+        await elementHandle.screenshot({ path: filepath });
     } else {
         await p.screenshot({ path: filepath, fullPage: !viewportOnly });
     }
+
+    console.log(filepath);
+} catch (error) {
+    exitCode = 1;
+    const reason = error && typeof error === "object" && "message" in error ? String(error.message) : String(error);
+    console.error(reason);
 } finally {
-    await automationCall(p, "showBanner");
+    if (p) {
+        await automationCall(p, "showBanner").catch(() => {});
+    }
+    await b.disconnect().catch(() => {});
+    stopHeartbeat();
+    if (exitCode !== 0) {
+        process.exit(exitCode);
+    }
 }
-
-if (process.exitCode === 1) {
-    await b.disconnect();
-    process.exit(1);
-}
-
-console.log(filepath);
-
-await b.disconnect();

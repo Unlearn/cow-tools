@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import puppeteer from "puppeteer-core";
 import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
+import { clearHeartbeatState, readHeartbeatState, requestWatchdogShutdown } from "./lib/session-heartbeat.js";
 import { stopSshProxyTunnel } from "./lib/ssh-proxy.js";
 
 if (process.argv.includes("--help")) {
@@ -19,6 +20,18 @@ if (process.argv.includes("--help")) {
 }
 
 ensureBrowserToolsWorkdir("stop.js");
+const invokedByWatchdog = process.argv.includes("--watchdog");
+const heartbeatState = readHeartbeatState();
+if (!invokedByWatchdog) {
+    requestWatchdogShutdown();
+}
+if (heartbeatState?.watcherPid && !invokedByWatchdog) {
+    try {
+        process.kill(heartbeatState.watcherPid, "SIGTERM");
+    } catch {
+        /* ignore */
+    }
+}
 
 const toolsRoot = fileURLToPath(new URL("../", import.meta.url));
 const profileDir = join(process.env["BROWSER_TOOLS_CACHE"] ?? toolsRoot, ".cache", "automation-profile");
@@ -84,3 +97,5 @@ const stoppedProxy = await stopSshProxyTunnel().catch(() => false);
 if (stoppedProxy) {
     console.log("✓ Stopped SSH proxy tunnel");
 }
+
+clearHeartbeatState();

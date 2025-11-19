@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import puppeteer from "puppeteer-core";
 import TurndownService from "turndown";
 import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
+import { startHeartbeatInterval } from "./lib/session-heartbeat.js";
 import { buildSearchSnippets } from "./lib/search-markdown.js";
 
 const argv = mri(process.argv.slice(2), { alias: { h: "help", c: "context" } });
@@ -38,6 +39,7 @@ if (argv.help) {
 }
 
 ensureBrowserToolsWorkdir("fetch-readable.js");
+const stopHeartbeat = startHeartbeatInterval();
 const url = argv._[0];
 const searchPattern = argv.search;
 const contextWords = Math.max(0, Number.isFinite(Number(argv.context)) ? Number(argv.context) : 0);
@@ -53,10 +55,15 @@ const b = await puppeteer.connect({
     defaultViewport: null,
 });
 
+const cleanup = async () => {
+    await b.disconnect().catch(() => {});
+    stopHeartbeat();
+};
+
 const page = (await b.pages()).at(-1);
 if (!page) {
     console.error("✗ No active tab found. Start Brave via tools/start.js first.");
-    await b.disconnect();
+    await cleanup();
     process.exit(1);
 }
 
@@ -82,7 +89,7 @@ const article = await page.evaluate(() => {
 
 if (!article) {
     console.error("✗ Failed to extract readable content. The page may be incompatible.");
-    await b.disconnect();
+    await cleanup();
     process.exit(1);
 }
 
@@ -109,7 +116,7 @@ if (searchPattern) {
         }
     } catch (err) {
         console.error(`✗ Failed to process --search pattern: ${err.message}`);
-        await b.disconnect();
+        await cleanup();
         process.exit(1);
     }
 }
@@ -121,4 +128,4 @@ if (matchesMarkdown) {
 }
 process.stdout.write(finalContent);
 
-await b.disconnect();
+await cleanup();

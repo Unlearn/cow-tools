@@ -3,6 +3,7 @@
 import mri from "mri";
 import puppeteer from "puppeteer-core";
 import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
+import { startHeartbeatInterval } from "./lib/session-heartbeat.js";
 
 /**
  * @typedef {Object} DdgResult
@@ -57,6 +58,7 @@ if (argv.help) {
 }
 
 ensureBrowserToolsWorkdir("ddg-search.js");
+const stopHeartbeat = startHeartbeatInterval();
 
 const query = argv._.join(" ").trim();
 if (!query) {
@@ -310,5 +312,8 @@ try {
 } catch (error) {
     const reason = error && typeof error === "object" && "message" in error ? String(error.message) : String(error);
     console.error(`Error querying DuckDuckGo: ${reason}`);
+    stopHeartbeat();
     process.exit(1);
+} finally {
+    stopHeartbeat();
 }

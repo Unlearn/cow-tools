@@ -27,6 +27,16 @@ function setup() {
 
   debug_mode=0
   export NVM_DEBUG=1
+
+  BRAVE_NIGHTLY_APP="/Applications/Brave Browser Nightly.app"
+  BRAVE_NIGHTLY_BIN="${BRAVE_NIGHTLY_APP}/Contents/MacOS/Brave Browser Nightly"
+  BRAVE_NIGHTLY_FRAMEWORK="${BRAVE_NIGHTLY_APP}/Contents/Frameworks/Brave Browser Nightly Framework.framework"
+  BRAVE_NIGHTLY_UPDATER="${BRAVE_NIGHTLY_FRAMEWORK}/Versions/Current/Helpers/BraveUpdater.app/Contents/MacOS/BraveUpdater"
+  BRAVE_AUTOMATION_AGENT_FILES=(
+    "$HOME/Library/LaunchAgents/com.brave.keystone.agent.plist"
+    "$HOME/Library/LaunchAgents/com.brave.keystone.xpcservice.plist"
+  )
+  BRAVE_UPDATER_CACHE="$HOME/Library/Application Support/BraveSoftware/BraveUpdater"
 }
 
 function prerequisites_check() {
@@ -72,6 +82,61 @@ function debug() {
   fi
 }
 
+function ensure_brave_nightly_installed() {
+  if [[ ! -x "$BRAVE_NIGHTLY_BIN" ]]; then
+    fail "Brave Browser Nightly must be installed at $BRAVE_NIGHTLY_APP before running setup."
+  fi
+}
+
+function brave_manual_update() {
+  if [[ ! -x "$BRAVE_NIGHTLY_UPDATER" ]]; then
+    warn "Brave updater binary missing; skipping Nightly update."
+    return
+  fi
+
+  info "Checking Brave Nightly for updates (this may take a moment)..."
+  local update_log
+  update_log="$(mktemp /tmp/brave-nightly-update.XXXXXX)"
+  local cleanup_log=1
+  if ! "$BRAVE_NIGHTLY_UPDATER" --install &>>"$update_log"; then
+    warn "Unable to stage Brave updater; see $update_log for details."
+    cleanup_log=0
+    return
+  fi
+
+  if "$BRAVE_NIGHTLY_UPDATER" --update-apps &>>"$update_log"; then
+    info "Brave Nightly is up to date."
+  else
+    warn "Brave Nightly update run reported issues; see $update_log for diagnostics."
+    cleanup_log=0
+  fi
+
+  if (( cleanup_log )); then
+    rm -f "$update_log"
+  fi
+}
+
+function brave_disable_auto_update() {
+  info "Disabling Brave Nightly background auto-updates..."
+
+  local agent
+  for agent in "${BRAVE_AUTOMATION_AGENT_FILES[@]}"; do
+    if [[ -f "$agent" ]]; then
+      launchctl bootout "gui/$(id -u)" "$agent" &>/dev/null || true
+      rm -f "$agent"
+      debug "Removed LaunchAgent $agent"
+    fi
+  done
+
+  if [[ -d "$BRAVE_UPDATER_CACHE" ]]; then
+    rm -rf "$BRAVE_UPDATER_CACHE"
+    debug "Cleared Brave updater cache at $BRAVE_UPDATER_CACHE"
+  fi
+
+  defaults write com.brave.Browser.nightly SUEnableAutomaticChecks -bool false >/dev/null 2>&1 || true
+  defaults write com.brave.Browser.nightly SUAutomaticallyUpdate -bool false >/dev/null 2>&1 || true
+}
+
 function usage() {
   cat <<EOF
 Usage: $(basename "$0") [options]
@@ -79,7 +144,9 @@ Usage: $(basename "$0") [options]
 Description:
   Sets up the browser-tools environment by installing Node.js dependencies,
   creating a local Node.js shim for tool execution, and downloading required
-  third-party scripts like Readability.js.
+  third-party scripts like Readability.js. The script also verifies that Brave
+  Browser Nightly is installed, applies any pending Nightly updates, and disables
+  Brave’s background auto-updater so automation runs against a consistent build.
 
 Options:
   -h, --help     Show this help message and exit
@@ -122,6 +189,7 @@ function nvm_cmd() {
 
 function main() {
   cd "$ROOT"
+  ensure_brave_nightly_installed
 
   info "Configuring PATH for setup..."
   local SHIM_DIR="$ROOT/.bin"
@@ -231,6 +299,9 @@ EOF
       mv "$READABILITY_PATH.tmp" "$READABILITY_PATH"
       info "Readability.js updated successfully."
   fi
+
+  brave_manual_update
+  brave_disable_auto_update
 
   success "Browser tools setup is complete."
   info "You can now start Brave with: node browser-tools/start.js"

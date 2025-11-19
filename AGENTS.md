@@ -12,7 +12,7 @@ how agents should compose them into robust, repeatable workflows.
 
 ### Environment Requirements
 
-- macOS with Brave Browser installed at `/Applications/Brave Browser.app`.
+- macOS with Brave Browser Nightly installed at `/Applications/Brave Browser Nightly.app`.
 - Node.js 18+ (native `fetch` + ES modules). `.nvmrc` pins the expected major version.
 - Poppler’s `pdftotext` on `PATH` (required for `pdf2md.js`).
 
@@ -42,17 +42,6 @@ After a human has run `./setup.sh` once **(agents must not invoke this script)**
 
 Scripts invoked with any other Node binary, or from the wrong working directory, will exit with an
 error and instructions to fix PATH/workdir.
-
-### SSH Proxy Tunnel (Default)
-
-- `start.js` automatically launches the baked-in SSH SOCKS tunnel defined in
-  `browser-tools/lib/ssh-proxy-config.js` (currently `ssh -N -D 127.0.0.1:1080 proxy-exit`
-  with strict keepalive flags). Define the `proxy-exit` host in your personal `~/.ssh/config`
-  so credentials stay outside the repo; update the code only if the alias name changes.
-- The proxy is mandatory unless you pass `--no-proxy`. Use that flag only when a site blocks the
-  tunnel or you explicitly need to expose your local IP for debugging.
-- `stop.js` tears the SSH process down after it closes Brave. Always run it when you are finished so
-  the tunnel does not linger between harness runs.
 
 ### Shell and Process Model
 

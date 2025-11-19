@@ -7,6 +7,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import fs from "node:fs/promises";
 import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
+import { startHeartbeatInterval } from "./lib/session-heartbeat.js";
 import { buildSearchSnippets } from "./lib/search-markdown.js";
 import { getBrowserLikeHeaders } from "./lib/user-agent.js";
 
@@ -49,6 +50,7 @@ if (argv.help) {
 }
 
 ensureBrowserToolsWorkdir("pdf2md.js");
+const stopHeartbeat = startHeartbeatInterval();
 
 const source = argv._[0];
 const searchPattern = argv.search;
@@ -57,6 +59,7 @@ const userFlags = typeof argv["search-flags"] === "string" ? argv["search-flags"
 
 if (!source) {
     showUsage();
+    stopHeartbeat();
     process.exit(1);
 }
 
@@ -65,6 +68,7 @@ async function extractPdfText(path) {
         await fs.access(path);
     } catch {
         console.error(`✗ PDF source not found: ${path}`);
+        stopHeartbeat();
         process.exit(1);
     }
 
@@ -73,6 +77,7 @@ async function extractPdfText(path) {
         return stdout.toString();
     } catch (err) {
         console.error(`✗ Failed to run pdftotext on ${path}: ${err.message}`);
+        stopHeartbeat();
         process.exit(1);
     }
 }
@@ -87,11 +92,13 @@ async function downloadPdfToTemp(url) {
         response = await fetch(url, { headers });
     } catch (err) {
         console.error(`✗ Failed to fetch PDF URL: ${err.message}`);
+        stopHeartbeat();
         process.exit(1);
     }
 
     if (!response.ok) {
         console.error(`✗ Failed to fetch PDF URL: HTTP ${response.status}`);
+        stopHeartbeat();
         process.exit(1);
     }
 
@@ -100,6 +107,7 @@ async function downloadPdfToTemp(url) {
         console.error(
             `✗ Expected a PDF response for ${url}, but received content-type "${contentType || "unknown"}".`,
         );
+        stopHeartbeat();
         process.exit(1);
     }
 
@@ -108,6 +116,7 @@ async function downloadPdfToTemp(url) {
         arrayBuffer = await response.arrayBuffer();
     } catch (err) {
         console.error(`✗ Failed to read PDF response body: ${err.message}`);
+        stopHeartbeat();
         process.exit(1);
     }
 
@@ -157,6 +166,7 @@ if (searchPattern) {
         }
     } catch (err) {
         console.error(`✗ Failed to process --search pattern: ${err.message}`);
+        stopHeartbeat();
         process.exit(1);
     }
 }
@@ -173,3 +183,4 @@ if (matchesMarkdown) {
     process.stdout.write(matchesMarkdown);
 }
 process.stdout.write(markdown);
+stopHeartbeat();
