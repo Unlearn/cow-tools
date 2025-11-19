@@ -13,19 +13,21 @@
  * @returns {SearchSnippetsResult}
  */
 export function buildSearchSnippets(textSource, { pattern, flags = "", contextWords = 0 }) {
-    if (!pattern) {
+    if (pattern === undefined || pattern === null || pattern === "") {
         return { snippets: [], label: "", contextWords };
     }
+    const patternString = String(pattern);
 
     const normalized = textSource.replace(/\s+/g, " ").trim();
-    const displayFlags = flags;
-    const regexFlags = flags.includes("g") ? flags : `${flags}g`;
-    const effectiveFlags = regexFlags || "g";
+    const baseFlags = flags && flags.trim().length ? flags : "i";
+    const displayFlags = baseFlags;
+    const regexFlags = baseFlags.includes("g") ? baseFlags : `${baseFlags}g`;
+    const effectiveFlags = regexFlags;
 
     // Escape currency-like `$` characters so patterns such as "S$" or "¥" behave like
     // literal substring searches rather than end-of-line anchors. Agents rarely need
     // regex anchors, but they frequently search for price tokens.
-    const escapedPattern = pattern.replace(/\$/g, "\\$");
+    const escapedPattern = patternString.replace(/\$/g, "\\$");
     const regex = new RegExp(escapedPattern, effectiveFlags);
 
     const wordRegex = /\S+/g;

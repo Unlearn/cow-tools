@@ -87,8 +87,6 @@ test.describe.serial("ddg-search.js", () => {
     test("fails clearly when Brave is unavailable", async () => {
         await ensureStopped();
 
-        await expect(runTool("ddg-search.js", ["test-query"], { timeout: 20_000 })).rejects.toThrow(
-            /Unable to connect to Brave on http:\/\/localhost:9222/,
-        );
+        await expect(runTool("ddg-search.js", ["test-query"], { timeout: 20_000 })).rejects.toThrow(/could not connect to Brave/);
     });
 });

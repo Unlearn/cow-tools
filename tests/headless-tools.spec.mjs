@@ -113,7 +113,7 @@ test.describe.serial("headless browser tools", () => {
         expect(stdout).toContain("Paris leads the list");
         expect(stdout).toContain("Fraisier");
         expect(stdout).toContain("Tokyo");
-        expect(stdout).toContain("Matches (pattern: /dessert|Tokyo/, context words: 0):");
+        expect(stdout).toContain("Matches (pattern: /dessert|Tokyo/i, context words: 0):");
         expect(stdout).toContain("- `Tokyo`");
         expect(stdout).toContain("- `dessert`");
 
@@ -172,7 +172,7 @@ test.describe.serial("headless browser tools", () => {
             "1",
         ]);
 
-        expect(stdout).toContain("Matches (pattern: /vanilla/, context words: 1):");
+        expect(stdout).toContain("Matches (pattern: /vanilla/i, context words: 1):");
         expect(stdout).toContain("- `describing vanilla custard.`");
 
         await server.close();
@@ -202,7 +202,7 @@ test.describe.serial("headless browser tools", () => {
             "0",
         ]);
 
-        expect(stdout).toContain("Matches (pattern: /Petit/, context words: 0):");
+        expect(stdout).toContain("Matches (pattern: /Petit/i, context words: 0):");
         expect(stdout).toContain("Petit");
 
         await server.close();

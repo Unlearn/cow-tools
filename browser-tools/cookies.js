@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 
 import mri from "mri";
-import puppeteer from "puppeteer-core";
-import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
 import { startHeartbeatInterval } from "./lib/session-heartbeat.js";
+import { connectToBraveOrExit, getActivePageOrExit } from "./lib/puppeteer-helpers.js";
 
 const argv = mri(process.argv.slice(2), { alias: { h: "help" } });
 const showUsage = () => {
@@ -21,7 +20,6 @@ if (argv.help) {
     process.exit(0);
 }
 
-ensureBrowserToolsWorkdir("cookies.js");
 const stopHeartbeat = startHeartbeatInterval();
 
 if (argv._.length > 0) {
@@ -29,21 +27,11 @@ if (argv._.length > 0) {
     process.exit(1);
 }
 
+const browser = await connectToBraveOrExit("cookies.js");
+
 try {
-    const b = await puppeteer.connect({
-        browserURL: "http://localhost:9222",
-        defaultViewport: null,
-    });
-
-    const p = (await b.pages()).at(-1);
-
-    if (!p) {
-        console.error("✗ No active tab found");
-        stopHeartbeat();
-        process.exit(1);
-    }
-
-    const cookies = await p.cookies();
+    const page = await getActivePageOrExit(browser, "cookies.js");
+    const cookies = await page.cookies();
 
     if (cookies.length === 0) {
         console.log("ℹ No cookies found for the active tab.");
@@ -58,7 +46,7 @@ try {
         }
     }
 
-    await b.disconnect();
+    await browser.disconnect().catch(() => {});
 } finally {
     stopHeartbeat();
 }

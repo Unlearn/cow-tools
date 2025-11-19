@@ -3,17 +3,14 @@
 import mri from "mri";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import puppeteer from "puppeteer-core";
 import TurndownService from "turndown";
-import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
 import { startHeartbeatInterval } from "./lib/session-heartbeat.js";
 import { buildSearchSnippets } from "./lib/search-markdown.js";
+import { connectToBraveOrExit, getActivePageOrExit } from "./lib/puppeteer-helpers.js";
 
 const argv = mri(process.argv.slice(2), { alias: { h: "help", c: "context" } });
 const showUsage = () => {
-    console.log(
-        "Usage: fetch-readable.js <url> [--search pattern] [--context N] [--search-flags ie]",
-    );
+    console.log("Usage: fetch-readable.js <url> [--search pattern] [--context N]");
     console.log("");
     console.log("Description:");
     console.log(
@@ -28,9 +25,7 @@ const showUsage = () => {
     console.log("");
     console.log("Examples:");
     console.log("  fetch-readable.js https://example.com > article.md");
-    console.log(
-        '  fetch-readable.js https://blog.com --search "dessert|Tokyo" --context 1 --search-flags i',
-    );
+    console.log('  fetch-readable.js https://blog.com --search "dessert|Tokyo" --context 1');
 };
 
 if (argv.help) {
@@ -38,34 +33,22 @@ if (argv.help) {
     process.exit(0);
 }
 
-ensureBrowserToolsWorkdir("fetch-readable.js");
 const stopHeartbeat = startHeartbeatInterval();
 const url = argv._[0];
 const searchPattern = argv.search;
 const contextWords = Math.max(0, Number.isFinite(Number(argv.context)) ? Number(argv.context) : 0);
-const userFlags = typeof argv["search-flags"] === "string" ? argv["search-flags"] : "";
-
 if (!url) {
     showUsage();
     process.exit(1);
 }
 
-const b = await puppeteer.connect({
-    browserURL: "http://localhost:9222",
-    defaultViewport: null,
-});
-
+const browser = await connectToBraveOrExit("fetch-readable.js");
 const cleanup = async () => {
-    await b.disconnect().catch(() => {});
+    await browser.disconnect().catch(() => {});
     stopHeartbeat();
 };
 
-const page = (await b.pages()).at(-1);
-if (!page) {
-    console.error("✗ No active tab found. Start Brave via tools/start.js first.");
-    await cleanup();
-    process.exit(1);
-}
+const page = await getActivePageOrExit(browser, "fetch-readable.js");
 
 await page.setBypassCSP(true).catch(() => {});
 
@@ -102,7 +85,6 @@ if (searchPattern) {
         const textSource = article.textContent ?? markdown;
         const { snippets, label } = buildSearchSnippets(textSource, {
             pattern: searchPattern,
-            flags: userFlags,
             contextWords,
         });
         if (snippets.length) {

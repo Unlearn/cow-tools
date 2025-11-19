@@ -111,17 +111,31 @@ export async function dismissCookieBanners(page) {
         "button[data-testid='accept-all']",
         "button[mode='primary'][data-testid='ConsentBanner-Accept']",
         "button[title='Accept']",
-        "button:contains('Accept all')",
-        "button:contains('I agree')",
-        "button:contains('Allow all')",
         "div[role='dialog'] button:nth-child(1)",
     ];
+    const textMatchers = ["accept all", "accept cookies", "i agree", "allow all", "consent"];
 
-    await page.evaluate((candidates) => {
+    await page.evaluate((candidates, phrases) => {
+        const safeQuery = (root, selector) => {
+            try {
+                return root.querySelector?.(selector) ?? null;
+            } catch {
+                return null;
+            }
+        };
+
         const find = (root) => {
             for (const selector of candidates) {
-                const el = root.querySelector?.(selector);
+                const el = safeQuery(root, selector);
                 if (el) return el;
+            }
+            const buttons = root.querySelectorAll?.("button, [role='button'], [type='button']") ?? [];
+            for (const el of buttons) {
+                const text = el.textContent?.trim().toLowerCase();
+                if (!text) continue;
+                if (phrases.some((phrase) => text.includes(phrase))) {
+                    return el;
+                }
             }
             return null;
         };
@@ -151,5 +165,5 @@ export async function dismissCookieBanners(page) {
             }
         }
         return false;
-    }, selectors);
+    }, selectors, textMatchers);
 }

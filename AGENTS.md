@@ -106,6 +106,13 @@ Agents SHOULD:
   3. Other results only when higher-signal sources are unavailable.
 - Use `domain`, `siteName`, `date`, and `snippet` to avoid thin directories and low-quality pages.
 
+### Planning & Evidence
+
+- Begin each workflow with a written plan (three or more steps) describing the target outcome, likely sources, and how results will be validated. Update the plan as you learn new facts.
+- Keep searching until you have at least one high-signal source for every key claim (official domains first, authoritative articles/documentation second, directories last).
+- Do not assert anything that is not captured in tool output. If a fact is missing, run an additional tool (`fetch-readable`, `pdf2md`, `eval`, etc.) to collect the evidence.
+- When a tool returns no matches or fails, note the attempt and immediately try an alternative selector, URL, or tool rather than repeating the same command blindly.
+
 ### Search Pattern Best Practices
 
 - Use semantically meaningful patterns:
@@ -391,7 +398,7 @@ to Markdown, and optionally search within it.
 
 ```bash
 node fetch-readable.js <url> > article.md
-node fetch-readable.js <url> --search "pattern" --context N --search-flags ie
+node fetch-readable.js <url> --search "pattern" --context N
 ```
 
 Guidelines:
@@ -425,12 +432,12 @@ node fetch-readable.js https://example.com/article \
 
 ```bash
 node pdf2md.js /path/to/file.pdf
-node pdf2md.js https://example.com/file.pdf --search "pattern" --context N --search-flags ie
+node pdf2md.js https://example.com/file.pdf --search "pattern" --context N
 ```
 
 Guidelines:
 
-- Use `--search` / `--context` / `--search-flags` as the primary way to locate relevant lines.
+- Use `--search` / `--context` as the primary way to locate relevant lines.
 - Choose patterns that correspond to headings or distinctive terms (e.g., `"Desserts"`, `"Signature"`),
   not generic numbers.
 - When you need the full text, stream it (e.g., `pdf2md.js … | less`) or direct it into downstream
@@ -442,13 +449,11 @@ Examples:
 # Locate a section heading and show nearby items
 node pdf2md.js https://example.com/menu.pdf \
   --search "Desserts" \
-  --context 4 \
-  --search-flags i
+  --context 4
 
 # Find all occurrences of a keyword with minimal padding
 node pdf2md.js /path/to/menu.pdf \
   --search "oyster" \
-  --search-flags i \
   --context 1
 ```
 
@@ -555,8 +560,7 @@ pdf_url="$(
 # 2. Extract the target section with context
 node pdf2md.js "$pdf_url" \
   --search "Desserts" \
-  --context 5 \
-  --search-flags i
+  --context 5
 ```
 
 ### Workflow 3: Interactive Login Flow

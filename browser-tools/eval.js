@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 
 import mri from "mri";
-import puppeteer from "puppeteer-core";
-import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
 import { startHeartbeatInterval } from "./lib/session-heartbeat.js";
+import { connectToBraveOrExit, getActivePageOrExit } from "./lib/puppeteer-helpers.js";
 
 const argv = mri(process.argv.slice(2), { alias: { h: "help" } });
 const showUsage = () => {
@@ -31,7 +30,6 @@ if (argv.help) {
     process.exit(0);
 }
 
-ensureBrowserToolsWorkdir("eval.js");
 const stopHeartbeat = startHeartbeatInterval();
 
 const code = argv._.join(" ");
@@ -40,21 +38,12 @@ if (!code) {
     process.exit(1);
 }
 
-const b = await puppeteer.connect({
-    browserURL: "http://localhost:9222",
-    defaultViewport: null,
-});
+const browser = await connectToBraveOrExit("eval.js");
 
 try {
-    const p = (await b.pages()).at(-1);
+    const page = await getActivePageOrExit(browser, "eval.js");
 
-    if (!p) {
-        console.error("✗ No active tab found");
-        stopHeartbeat();
-        process.exit(1);
-    }
-
-    const result = await p.evaluate((c) => {
+    const result = await page.evaluate((c) => {
         const AsyncFunction = (async () => {}).constructor;
         return new AsyncFunction(`return (${c})`)();
     }, code);
@@ -78,6 +67,6 @@ try {
     stopHeartbeat();
     process.exit(1);
 } finally {
-    await b.disconnect();
+    await browser.disconnect().catch(() => {});
     stopHeartbeat();
 }

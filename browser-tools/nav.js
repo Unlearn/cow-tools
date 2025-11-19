@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 
 import mri from "mri";
-import puppeteer from "puppeteer-core";
-import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
 import { startHeartbeatInterval } from "./lib/session-heartbeat.js";
 import { dismissCookieBanners } from "./lib/automation.js";
+import { connectToBraveOrExit, getActivePageOrExit } from "./lib/puppeteer-helpers.js";
 
 const argv = mri(process.argv.slice(2), { alias: { h: "help" }, boolean: ["new"] });
 const showUsage = () => {
@@ -26,7 +25,6 @@ if (argv.help) {
     process.exit(0);
 }
 
-ensureBrowserToolsWorkdir("nav.js");
 const stopHeartbeat = startHeartbeatInterval();
 
 const url = argv._[0];
@@ -37,34 +35,21 @@ if (!url) {
     process.exit(1);
 }
 
-try {
-    const b = await puppeteer.connect({
-        browserURL: "http://localhost:9222",
-        defaultViewport: null,
-    });
+const browser = await connectToBraveOrExit("nav.js");
 
+try {
     if (newTab) {
-        const p = await b.newPage();
-        await p.goto(url, { waitUntil: "domcontentloaded" });
-        await dismissCookieBanners(p).catch(() => {});
+        const page = await browser.newPage();
+        await page.goto(url, { waitUntil: "domcontentloaded" });
+        await dismissCookieBanners(page).catch(() => {});
         console.log("✓ Opened:", url);
     } else {
-        const pages = await b.pages();
-        const p = pages.at(-1);
-
-    if (!p) {
-        console.error("✗ No active tab found");
-        await b.disconnect();
-        stopHeartbeat();
-        process.exit(1);
-    }
-
-        await p.goto(url, { waitUntil: "domcontentloaded" });
-        await dismissCookieBanners(p).catch(() => {});
+        const page = await getActivePageOrExit(browser, "nav.js");
+        await page.goto(url, { waitUntil: "domcontentloaded" });
+        await dismissCookieBanners(page).catch(() => {});
         console.log("✓ Navigated to:", url);
     }
-
-    await b.disconnect();
 } finally {
+    await browser.disconnect().catch(() => {});
     stopHeartbeat();
 }

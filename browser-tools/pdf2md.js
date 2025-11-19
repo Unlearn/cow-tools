@@ -16,9 +16,7 @@ const execFileAsync = promisify(execFile);
 const argv = mri(process.argv.slice(2), { alias: { h: "help", c: "context" } });
 
 const showUsage = () => {
-    console.log(
-        "Usage: pdf2md.js <pdf-path-or-url> [--search pattern] [--context N] [--search-flags ie]",
-    );
+    console.log("Usage: pdf2md.js <pdf-path-or-url> [--search pattern] [--context N]");
     console.log("");
     console.log("Description:");
     console.log(
@@ -39,9 +37,7 @@ const showUsage = () => {
     console.log('  pdf2md.js /path/to/menu.pdf --search "Desserts" --context 4');
     console.log("");
     console.log("  # Find a specific item (case-insensitive) in a remote menu:");
-    console.log(
-        '  pdf2md.js https://example.com/menu.pdf --search "fraisier" --context 2 --search-flags i',
-    );
+    console.log('  pdf2md.js https://example.com/menu.pdf --search "fraisier" --context 2');
 };
 
 if (argv.help) {
@@ -55,7 +51,6 @@ const stopHeartbeat = startHeartbeatInterval();
 const source = argv._[0];
 const searchPattern = argv.search;
 const contextWords = Math.max(0, Number.isFinite(Number(argv.context)) ? Number(argv.context) : 0);
-const userFlags = typeof argv["search-flags"] === "string" ? argv["search-flags"] : "";
 
 if (!source) {
     showUsage();
@@ -152,7 +147,6 @@ if (searchPattern) {
     try {
         const { snippets, label } = buildSearchSnippets(markdown, {
             pattern: searchPattern,
-            flags: userFlags,
             contextWords,
         });
         if (snippets.length) {

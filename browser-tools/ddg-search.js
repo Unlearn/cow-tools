@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 
 import mri from "mri";
-import puppeteer from "puppeteer-core";
-import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
 import { startHeartbeatInterval } from "./lib/session-heartbeat.js";
+import { connectToBraveOrExit } from "./lib/puppeteer-helpers.js";
 
 /**
  * @typedef {Object} DdgResult
@@ -57,7 +56,6 @@ if (argv.help) {
     process.exit(0);
 }
 
-ensureBrowserToolsWorkdir("ddg-search.js");
 const stopHeartbeat = startHeartbeatInterval();
 
 const query = argv._.join(" ").trim();
@@ -109,19 +107,7 @@ const DDG_SETTINGS_QUERY = new URLSearchParams(DDG_SETTINGS_PARAMS).toString();
  * @returns {Promise<DdgResult[]>}
  */
 async function runViaBrave(q, max) {
-    let browser;
-    try {
-        browser = await puppeteer.connect({
-            browserURL: "http://localhost:9222",
-            defaultViewport: null,
-        });
-    } catch (err) {
-        const reason = err && typeof err === "object" && "message" in err ? String(err.message) : String(err);
-        throw new Error(
-            `Unable to connect to Brave on http://localhost:9222: ${reason}. ` +
-                "Start Brave with start.js before running ddg-search.js.",
-        );
-    }
+    const browser = await connectToBraveOrExit("ddg-search.js");
 
     try {
         const pages = await browser.pages();

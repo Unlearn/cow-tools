@@ -89,7 +89,7 @@ test.describe("pdf2md.js", () => {
         expect(entries[0].contentType).toBe("application/pdf");
     });
 
-    test("supports search flags on generated markdown", async () => {
+    test("supports search patterns on generated markdown", async () => {
         const pdfPath = await createMenuPdf();
         const child = spawnTool("pdf2md.js", [
             pdfPath,
@@ -102,7 +102,7 @@ test.describe("pdf2md.js", () => {
 
         expect(code).toBe(0);
         expect(stdout).toContain("BANOFFEE TART");
-        expect(stdout).toContain("Matches (pattern: /BANOFFEE/, context words: 0):");
+        expect(stdout).toContain("Matches (pattern: /BANOFFEE/i, context words: 0):");
         expect(stdout).toContain("- `BANOFFEE`");
     });
     test("emits a no-match block when pattern is absent", async () => {
@@ -117,10 +117,10 @@ test.describe("pdf2md.js", () => {
         const { code, stdout } = await collectProcessOutput(child);
 
         expect(code).toBe(0);
-        expect(stdout).toContain("Matches (pattern: /TIRAMISU/, context words: 1):");
+        expect(stdout).toContain("Matches (pattern: /TIRAMISU/i, context words: 1):");
         expect(stdout).toContain("- _No matches found_");
     });
-    test("handles complex regex patterns with context and flags", async () => {
+    test("handles complex regex patterns with context", async () => {
         const pdfPath = await createComplexMenuPdf();
         const child = spawnTool("pdf2md.js", [
             pdfPath,
@@ -128,8 +128,6 @@ test.describe("pdf2md.js", () => {
             "dessert|Bonbons",
             "--context",
             "3",
-            "--search-flags",
-            "i",
         ]);
         const { code, stdout } = await collectProcessOutput(child);
 
@@ -171,7 +169,7 @@ test.describe("pdf2md.js", () => {
 
         expect(code).toBe(0);
         expect(stdout).toContain("BANOFFEE TART");
-        expect(stdout).toContain("Matches (pattern: /BANOFFEE/, context words: 0):");
+        expect(stdout).toContain("Matches (pattern: /BANOFFEE/i, context words: 0):");
 
         const entries = parseKeyValueBlocks(stderr);
         expect(entries.length).toBeGreaterThanOrEqual(1);
