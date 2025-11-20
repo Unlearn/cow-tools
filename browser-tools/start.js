@@ -203,7 +203,25 @@ if (braveBinarySource === "env") {
     console.log(`ℹ Using Brave Browser Nightly: ${braveBinary}`);
 }
 
-spawn(braveBinary, launchArgs, { detached: true, stdio: "ignore" }).unref();
+const braveProcess = spawn(braveBinary, launchArgs, { detached: true, stdio: "ignore" });
+braveProcess.unref();
+
+const killBraveProcess = (signal = "SIGTERM") => {
+    if (!braveProcess?.pid) {
+        return false;
+    }
+    try {
+        process.kill(braveProcess.pid, signal);
+        return true;
+    } catch (err) {
+        // @ts-ignore runtime error objects may have a code property
+        if (err?.code !== "ESRCH") {
+            const reason = err && typeof err === "object" && "message" in err ? String(err.message) : String(err);
+            console.warn("Warning: failed to terminate Brave process", reason);
+        }
+        return false;
+    }
+};
 
 let browser = null;
 const maxAttempts = 30;
@@ -221,6 +239,7 @@ for (let i = 0; i < maxAttempts; i++) {
 
 if (!browser) {
     console.error("✗ Failed to connect to Brave");
+    killBraveProcess();
     if (proxyInfo) {
         await stopSshProxyTunnel({ silent: true });
     }

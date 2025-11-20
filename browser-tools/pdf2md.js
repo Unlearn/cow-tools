@@ -12,6 +12,8 @@ import { buildSearchSnippets } from "./lib/search-markdown.js";
 import { getBrowserLikeHeaders } from "./lib/user-agent.js";
 
 const execFileAsync = promisify(execFile);
+const FETCH_TIMEOUT_MS = 30_000;
+const MAX_PDF_BYTES = 25 * 1024 * 1024; // 25 MB limit to avoid hangs on huge files
 
 const argv = mri(process.argv.slice(2), { alias: { h: "help", c: "context" } });
 
@@ -82,17 +84,27 @@ async function downloadPdfToTemp(url) {
         Accept: "application/pdf,application/octet-stream;q=0.9,*/*;q=0.8",
     });
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(new Error("timeout")), FETCH_TIMEOUT_MS);
+
     let response;
     try {
-        response = await fetch(url, { headers });
+        response = await fetch(url, { headers, signal: controller.signal });
     } catch (err) {
-        console.error(`✗ Failed to fetch PDF URL: ${err.message}`);
+        const timedOut = err?.name === "AbortError" || err?.message === "timeout";
+        console.error(
+            timedOut
+                ? `✗ Failed to fetch PDF URL: timed out after ${Math.round(FETCH_TIMEOUT_MS / 1000)}s`
+                : `✗ Failed to fetch PDF URL: ${err.message}`,
+        );
+        clearTimeout(timeout);
         stopHeartbeat();
         process.exit(1);
     }
 
     if (!response.ok) {
         console.error(`✗ Failed to fetch PDF URL: HTTP ${response.status}`);
+        clearTimeout(timeout);
         stopHeartbeat();
         process.exit(1);
     }
@@ -102,23 +114,60 @@ async function downloadPdfToTemp(url) {
         console.error(
             `✗ Expected a PDF response for ${url}, but received content-type "${contentType || "unknown"}".`,
         );
-        stopHeartbeat();
-        process.exit(1);
-    }
-
-    let arrayBuffer;
-    try {
-        arrayBuffer = await response.arrayBuffer();
-    } catch (err) {
-        console.error(`✗ Failed to read PDF response body: ${err.message}`);
+        clearTimeout(timeout);
         stopHeartbeat();
         process.exit(1);
     }
 
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "pdf2md-"));
     const tmpPath = path.join(tmpDir, "download.pdf");
-    await fs.writeFile(tmpPath, Buffer.from(arrayBuffer));
-    return { tmpDir, tmpPath };
+
+    try {
+        const reader = response.body?.getReader();
+        if (!reader) {
+            throw new Error("Failed to read PDF response body");
+        }
+
+        /** @type {Buffer[]} */
+        const chunks = [];
+        let total = 0;
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (value) {
+                total += value.byteLength;
+                if (total > MAX_PDF_BYTES) {
+                    controller.abort(new Error("size-limit"));
+                    throw new Error(
+                        `PDF exceeds maximum allowed size (${Math.round(MAX_PDF_BYTES / (1024 * 1024))} MB limit)`,
+                    );
+                }
+                chunks.push(Buffer.from(value));
+            }
+        }
+
+        clearTimeout(timeout);
+        await fs.writeFile(tmpPath, Buffer.concat(chunks));
+        return { tmpDir, tmpPath };
+    } catch (err) {
+        clearTimeout(timeout);
+        try {
+            await fs.rm(tmpDir, { recursive: true, force: true });
+        } catch {
+            /* ignore cleanup errors */
+        }
+        const timedOut = err?.name === "AbortError" || err?.message === "timeout";
+        const sizeLimited = err?.message?.includes("maximum allowed size");
+        console.error(
+            timedOut
+                ? `✗ Failed to fetch PDF URL: timed out after ${Math.round(FETCH_TIMEOUT_MS / 1000)}s`
+                : sizeLimited
+                  ? `✗ ${err.message}`
+                  : `✗ Failed to read PDF response body: ${err.message}`,
+        );
+        stopHeartbeat();
+        process.exit(1);
+    }
 }
 
 let pdfPath = source;
