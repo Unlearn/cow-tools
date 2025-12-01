@@ -116,7 +116,12 @@ async function runViaBrave(q, max) {
         const url =
             process.env.DDG_SERP_URL ||
             `https://duckduckgo.com/?${DDG_SETTINGS_QUERY}&q=${encodeURIComponent(q)}&ia=web`;
-        await page.goto(url, { waitUntil: "domcontentloaded", timeout: 20000 }).catch(() => {});
+        try {
+            await page.goto(url, { waitUntil: "domcontentloaded", timeout: 20000 });
+        } catch (err) {
+            const reason = err && typeof err === "object" && "message" in err ? String(err.message) : String(err);
+            throw new Error(`Failed to navigate to DuckDuckGo search page: ${reason}`);
+        }
         await page
             .waitForSelector("[data-testid='result']", { timeout: 15000 })
             .catch(() => {});

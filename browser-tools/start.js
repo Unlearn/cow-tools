@@ -65,6 +65,8 @@ const windowSize = process.env.BROWSER_TOOLS_WINDOW_SIZE ?? "2560,1440";
 const userAgent = getUserAgent();
 let proxyInfo = null;
 const defaultTimeoutMs = 10 * 60 * 1000;
+const minTimeoutMs = 10 * 1000; // Enforce minimum 10 second timeout
+const allowTestOverride = process.env.BROWSER_TOOLS_ALLOW_SHORT_TIMEOUT === "1";
 const envTimeoutMs = Number(process.env.BROWSER_TOOLS_SESSION_TIMEOUT_MS);
 const envTimeoutMinutes = Number(process.env.BROWSER_TOOLS_SESSION_TIMEOUT_MINUTES);
 let sessionTimeoutMs = Number.isFinite(envTimeoutMs) && envTimeoutMs > 0 ? envTimeoutMs : defaultTimeoutMs;
@@ -78,6 +80,11 @@ if (typeof argv["session-timeout"] === "string" && argv["session-timeout"].lengt
         process.exit(1);
     }
     sessionTimeoutMs = cliMinutes * 60 * 1000;
+}
+// Enforce minimum timeout to prevent watchdog misconfiguration (unless in test mode)
+if (!allowTestOverride && sessionTimeoutMs < minTimeoutMs) {
+    console.warn(`⚠ Session timeout (${sessionTimeoutMs}ms) is below minimum (${minTimeoutMs}ms), using minimum`);
+    sessionTimeoutMs = minTimeoutMs;
 }
 
 if (resetProfile && !useProfile) {
@@ -303,7 +310,9 @@ try {
         detached: true,
         stdio: "ignore",
     });
-    setWatchdogPid(watchdog.pid);
+    if (watchdog.pid) {
+        setWatchdogPid(watchdog.pid);
+    }
     watchdog.unref();
 } catch (err) {
     const reason = err && typeof err === "object" && "message" in err ? String(err.message) : String(err);

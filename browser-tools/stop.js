@@ -27,9 +27,14 @@ if (!invokedByWatchdog) {
 }
 if (heartbeatState?.watcherPid && !invokedByWatchdog) {
     try {
+        // Verify process still exists before sending signal
+        process.kill(heartbeatState.watcherPid, 0);
         process.kill(heartbeatState.watcherPid, "SIGTERM");
-    } catch {
-        /* ignore */
+    } catch (err) {
+        // Process doesn't exist (ESRCH) or permission denied - safe to ignore
+        if (err?.code !== "ESRCH" && err?.code !== "EPERM") {
+            console.warn("Warning: failed to terminate watchdog process", err?.message ?? err);
+        }
     }
 }
 

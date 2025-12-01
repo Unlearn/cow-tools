@@ -47,6 +47,7 @@ test.describe.serial("session watchdog", () => {
         await startAutomation({
             env: {
                 BROWSER_TOOLS_SESSION_TIMEOUT_MS: "2000",
+                BROWSER_TOOLS_ALLOW_SHORT_TIMEOUT: "1",
             },
         });
         const terminated = await waitForTermination(7000);
@@ -58,6 +59,7 @@ test.describe.serial("session watchdog", () => {
         await startAutomation({
             env: {
                 BROWSER_TOOLS_SESSION_TIMEOUT_MS: "1500",
+                BROWSER_TOOLS_ALLOW_SHORT_TIMEOUT: "1",
             },
         });
         await sleep(700);
@@ -75,6 +77,7 @@ test.describe.serial("session watchdog", () => {
         await startAutomation({
             env: {
                 BROWSER_TOOLS_SESSION_TIMEOUT_MS: "4000",
+                BROWSER_TOOLS_ALLOW_SHORT_TIMEOUT: "1",
             },
         });
         const before = await waitForHeartbeatState();
@@ -103,6 +106,7 @@ test.describe.serial("session watchdog", () => {
         await startAutomation({
             env: {
                 BROWSER_TOOLS_SESSION_TIMEOUT_MS: "1200",
+                BROWSER_TOOLS_ALLOW_SHORT_TIMEOUT: "1",
             },
         });
         const { stdout } = await runTool("eval.js", [

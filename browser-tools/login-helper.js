@@ -176,9 +176,20 @@ const checkForCompletion = async () => {
 
 const startTime = Date.now();
 let finalState = null;
+let lastPromptRefresh = 0;
+const INITIAL_REFRESH_INTERVAL = 500; // Fast polling for first few seconds
+const STEADY_REFRESH_INTERVAL = 5000; // Slower polling after initial period
+const FAST_POLL_DURATION = 10000; // Use fast polling for first 10 seconds
 
 while (Date.now() - startTime < timeoutMs) {
-    await ensurePromptsPresent();
+    const now = Date.now();
+    const elapsed = now - startTime;
+    const refreshInterval = elapsed < FAST_POLL_DURATION ? INITIAL_REFRESH_INTERVAL : STEADY_REFRESH_INTERVAL;
+
+    if (now - lastPromptRefresh >= refreshInterval) {
+        await ensurePromptsPresent();
+        lastPromptRefresh = now;
+    }
     const state = await checkForCompletion();
     if (state && state.status !== "pending") {
         finalState = state;

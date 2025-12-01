@@ -39,12 +39,17 @@ const removeState = () => {
 const waitForPort = (host, port, timeoutMs) =>
     new Promise((resolve, reject) => {
         const deadline = Date.now() + timeoutMs;
+        let resolved = false;
         const timeoutHandle = setTimeout(() => {
-            reject(new Error(`Timed out waiting for ${host}:${port}`));
+            if (!resolved) {
+                resolved = true;
+                reject(new Error(`Timed out waiting for ${host}:${port}`));
+            }
         }, timeoutMs);
         timeoutHandle.unref();
 
         const attempt = () => {
+            if (resolved) return;
             const socket = net.connect({ host, port });
             const teardown = () => {
                 socket.removeAllListeners();
@@ -52,14 +57,20 @@ const waitForPort = (host, port, timeoutMs) =>
             };
             socket.once("connect", () => {
                 teardown();
-                clearTimeout(timeoutHandle);
-                resolve();
+                if (!resolved) {
+                    resolved = true;
+                    clearTimeout(timeoutHandle);
+                    resolve();
+                }
             });
             const handleFailure = (err) => {
                 teardown();
                 if (Date.now() >= deadline) {
-                    clearTimeout(timeoutHandle);
-                    reject(err);
+                    if (!resolved) {
+                        resolved = true;
+                        clearTimeout(timeoutHandle);
+                        reject(err);
+                    }
                     return;
                 }
                 setTimeout(attempt, 250).unref();
@@ -114,7 +125,16 @@ export const stopSshProxyTunnel = async ({ silent = false } = {}) => {
                 throw err;
             }
         }
-        await killPid(pid, "SIGKILL");
+        // Check if process still exists before SIGKILL
+        try {
+            process.kill(pid, 0);
+            await killPid(pid, "SIGKILL");
+        } catch (err) {
+            if (err?.code === "ESRCH") {
+                return true;
+            }
+            throw err;
+        }
         return true;
     } catch (err) {
         if (!silent) {
