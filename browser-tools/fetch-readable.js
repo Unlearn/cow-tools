@@ -4,6 +4,7 @@ import mri from "mri";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import TurndownService from "turndown";
+import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
 import { startHeartbeatInterval } from "./lib/session-heartbeat.js";
 import { buildSearchSnippets } from "./lib/search-markdown.js";
 import { connectToBraveOrExit, getActivePageOrExit } from "./lib/puppeteer-helpers.js";
@@ -33,6 +34,7 @@ if (argv.help) {
     process.exit(0);
 }
 
+ensureBrowserToolsWorkdir("fetch-readable.js");
 const stopHeartbeat = startHeartbeatInterval();
 const url = argv._[0];
 const searchPattern = argv.search;

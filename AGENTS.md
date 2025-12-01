@@ -52,6 +52,37 @@ error and instructions to fix PATH/workdir.
   - Use BSD-friendly flags for `sed`, `awk`, etc.
   - `mktemp` templates must end with `XXXXXX` (for example, `mktemp /tmp/readable.XXXXXX`).
 
+### Pipelines and JSON Processing
+
+When working with tools that output JSON (e.g., `ddg-search.js --json`), prefer a **two-step approach** over direct piping:
+
+**Recommended:**
+```bash
+# Step 1: Capture output to file
+node ddg-search.js --json "query" > /tmp/results.json
+
+# Step 2: Process with jq
+jq -r '.[0].url' /tmp/results.json
+```
+
+**Avoid:**
+```bash
+# Direct piping can cause shell/env issues and messy traces
+node ddg-search.js --json "query" | jq -r '.[0].url'
+```
+
+**Benefits of the two-step approach:**
+- Cleaner execution traces (each command runs independently)
+- Easier debugging (intermediate JSON is inspectable)
+- Avoids shell environment issues with pipes
+- Better error isolation (know which step failed)
+- Reusable intermediate output
+
+**When to use direct piping:**
+- Simple, one-time extractions where trace clarity isn't critical
+- Interactive debugging sessions
+- When intermediate files would clutter `/tmp`
+
 ---
 
 ## Core Concepts

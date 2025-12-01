@@ -17,6 +17,7 @@ Desktop.ini
 logs
 .bin
 .cache
+.claude
 
 node_modules
 playwright-report

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import mri from "mri";
+import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
 import { startHeartbeatInterval } from "./lib/session-heartbeat.js";
 import { connectToBraveOrExit, getActivePageOrExit } from "./lib/puppeteer-helpers.js";
 
@@ -30,6 +31,7 @@ if (argv.help) {
     process.exit(0);
 }
 
+ensureBrowserToolsWorkdir("eval.js");
 const stopHeartbeat = startHeartbeatInterval();
 
 const code = argv._.join(" ");

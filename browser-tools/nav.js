@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import mri from "mri";
+import { ensureBrowserToolsWorkdir } from "./lib/workdir-guard.js";
 import { startHeartbeatInterval } from "./lib/session-heartbeat.js";
 import { dismissCookieBanners } from "./lib/automation.js";
 import { connectToBraveOrExit, getActivePageOrExit } from "./lib/puppeteer-helpers.js";
@@ -25,6 +26,7 @@ if (argv.help) {
     process.exit(0);
 }
 
+ensureBrowserToolsWorkdir("nav.js");
 const stopHeartbeat = startHeartbeatInterval();
 
 const url = argv._[0];
